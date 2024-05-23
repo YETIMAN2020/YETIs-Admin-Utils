@@ -1,0 +1,14 @@
+name: YETIsUtils
+version: 1.1
+main: org.yetiman.yetisutils.YETIsUtils
+api-version: 1.16
+commands:
+  admintoggle:
+    description: Toggle storing or retrieving your inventory from a personal container.
+    usage: /admintoggle
+    permission: yetisutils.admintoggle
+    permission-message: You do not have permission to use this command.
+permissions:
+  yetisutils.admintoggle:
+    description: Allows the user to toggle storing or retrieving their inventory.
+    default: op
