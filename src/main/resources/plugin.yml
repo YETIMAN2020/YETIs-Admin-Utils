@@ -8,7 +8,7 @@ commands:
     usage: /adminmode
   warn:
     description: Warn a player.
-    usage: /warn <player>
+    usage: /warn <player> <reason>
     permission: yetisutils.warn
     permission-message: You do not have permission to warn players.
   warnings:
@@ -16,10 +16,18 @@ commands:
     usage: /warnings <player>
     permission: yetisutils.warnings
     permission-message: You do not have permission to check warnings.
+  warninggui:
+    description: Open the warnings GUI.
+    usage: /warninggui
+    permission: yetisutils.warninggui
+    permission-message: You do not have permission to open the warnings GUI.
 permissions:
   yetisutils.warn:
     description: Allows the player to warn others.
     default: op
   yetisutils.warnings:
     description: Allows the player to check warnings.
+    default: op
+  yetisutils.warninggui:
+    description: Allows the player to open the warnings GUI.
     default: op

@@ -20,6 +20,7 @@ public class YETIsUtils extends JavaPlugin implements Listener {
     private final Map<UUID, ItemStack[]> playerInventories = new HashMap<>();
     private final Map<UUID, ItemStack[]> adminInventories = new HashMap<>();
     private WarningHandler warningHandler;
+    private WarningGUI warningGUI;
 
     public static YETIsUtils getInstance() {
         return instance;
@@ -29,6 +30,7 @@ public class YETIsUtils extends JavaPlugin implements Listener {
     public void onEnable() {
         instance = this;
         warningHandler = new WarningHandler(this);
+        warningGUI = new WarningGUI(this, warningHandler);
 
         if (getCommand("adminmode") != null) {
             getCommand("adminmode").setExecutor(new AdminModeCommand());
@@ -46,6 +48,12 @@ public class YETIsUtils extends JavaPlugin implements Listener {
             getCommand("warnings").setExecutor(new WarningsCommand());
         } else {
             getLogger().severe("Command warnings not found in plugin.yml");
+        }
+
+        if (getCommand("warninggui") != null) {
+            getCommand("warninggui").setExecutor(new WarningGUICommand());
+        } else {
+            getLogger().severe("Command warninggui not found in plugin.yml");
         }
 
         Bukkit.getPluginManager().registerEvents(this, this);
@@ -89,8 +97,8 @@ public class YETIsUtils extends JavaPlugin implements Listener {
     public class WarnCommand implements CommandExecutor {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-            if (args.length != 1) {
-                sender.sendMessage("Usage: /warn <player>");
+            if (args.length < 2) {
+                sender.sendMessage("Usage: /warn <player> <reason>");
                 return true;
             }
             Player target = Bukkit.getPlayer(args[0]);
@@ -98,8 +106,9 @@ public class YETIsUtils extends JavaPlugin implements Listener {
                 sender.sendMessage("Player not found.");
                 return true;
             }
-            warningHandler.addWarning(target);
-            sender.sendMessage("Player " + target.getName() + " has been warned.");
+            String reason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+            warningHandler.addWarning(target, reason);
+            sender.sendMessage("Player " + target.getName() + " has been warned for: " + reason);
             return true;
         }
     }
@@ -118,6 +127,19 @@ public class YETIsUtils extends JavaPlugin implements Listener {
             }
             int count = warningHandler.getWarnings(target);
             sender.sendMessage("Player " + target.getName() + " has " + count + " warning(s).");
+            return true;
+        }
+    }
+
+    public class WarningGUICommand implements CommandExecutor {
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage("Only players can use this command.");
+                return true;
+            }
+            Player player = (Player) sender;
+            warningGUI.openWarningGUI(player);
             return true;
         }
     }

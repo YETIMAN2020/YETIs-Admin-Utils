@@ -7,9 +7,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 public class WarningHandler {
     private final JavaPlugin plugin;
@@ -25,19 +24,28 @@ public class WarningHandler {
         loadWarnings();
     }
 
-    public void addWarning(Player player) {
+    public void addWarning(Player player, String reason) {
         UUID playerId = player.getUniqueId();
         String playerName = player.getName();
         String playerIP = player.getAddress().getAddress().getHostAddress();
-        WarningData data = warnings.getOrDefault(playerId, new WarningData(playerName, playerIP, 0));
-        data.incrementWarnings();
+        WarningData data = warnings.getOrDefault(playerId, new WarningData(playerName, playerIP, 0, new ArrayList<>()));
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        data.incrementWarnings(reason, timestamp);
         warnings.put(playerId, data);
         saveWarnings();
-        player.sendMessage("You have been warned. Total warnings: " + data.getWarnings());
+        player.sendMessage("You have been warned. Total warnings: " + data.getWarnings() + ". Reason: " + reason);
     }
 
     public int getWarnings(Player player) {
-        return warnings.getOrDefault(player.getUniqueId(), new WarningData(player.getName(), player.getAddress().getAddress().getHostAddress(), 0)).getWarnings();
+        return warnings.getOrDefault(player.getUniqueId(), new WarningData(player.getName(), player.getAddress().getAddress().getHostAddress(), 0, new ArrayList<>())).getWarnings();
+    }
+
+    public List<String> getReasons(UUID playerId) {
+        return warnings.getOrDefault(playerId, new WarningData("", "", 0, new ArrayList<>())).getDetailedReasons();
+    }
+
+    public Map<UUID, WarningData> getAllWarnings() {
+        return warnings;
     }
 
     private void loadWarnings() {
@@ -47,7 +55,8 @@ public class WarningHandler {
                 String name = warningConfig.getString(key + ".name");
                 String ip = warningConfig.getString(key + ".ip");
                 int count = warningConfig.getInt(key + ".warnings");
-                warnings.put(uuid, new WarningData(name, ip, count));
+                List<String> reasons = warningConfig.getStringList(key + ".reasons");
+                warnings.put(uuid, new WarningData(name, ip, count, reasons));
             }
         }
     }
@@ -59,6 +68,7 @@ public class WarningHandler {
             warningConfig.set(uuid.toString() + ".name", data.getName());
             warningConfig.set(uuid.toString() + ".ip", data.getIp());
             warningConfig.set(uuid.toString() + ".warnings", data.getWarnings());
+            warningConfig.set(uuid.toString() + ".reasons", data.getDetailedReasons());
         }
         try {
             warningConfig.save(warningFile);
@@ -67,15 +77,17 @@ public class WarningHandler {
         }
     }
 
-    private static class WarningData {
+    public static class WarningData {
         private final String name;
         private final String ip;
         private int warnings;
+        private final List<String> detailedReasons;
 
-        public WarningData(String name, String ip, int warnings) {
+        public WarningData(String name, String ip, int warnings, List<String> detailedReasons) {
             this.name = name;
             this.ip = ip;
             this.warnings = warnings;
+            this.detailedReasons = detailedReasons;
         }
 
         public String getName() {
@@ -90,8 +102,13 @@ public class WarningHandler {
             return warnings;
         }
 
-        public void incrementWarnings() {
+        public List<String> getDetailedReasons() {
+            return detailedReasons;
+        }
+
+        public void incrementWarnings(String reason, String timestamp) {
             this.warnings++;
+            this.detailedReasons.add(reason + "\n" + timestamp);
         }
     }
 }
