@@ -1,6 +1,6 @@
 # YETIsUtils
 
-**Version:** 1.1  
+**Version:** 2.0  
 **API Version:** 1.20  
 
 ## Features
