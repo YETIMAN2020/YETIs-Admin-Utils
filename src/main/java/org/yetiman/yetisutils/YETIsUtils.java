@@ -1,124 +1,175 @@
 package org.yetiman.yetisutils;
 
-
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
-public class YETIsUtils extends JavaPlugin {
+public class YETIsUtils extends JavaPlugin implements Listener {
+    private static YETIsUtils instance;
+    private final Map<UUID, ItemStack[]> playerInventories = new HashMap<>();
+    private final Map<UUID, ItemStack[]> adminInventories = new HashMap<>();
+    private WarningHandler warningHandler;
+
+    public static YETIsUtils getInstance() {
+        return instance;
+    }
 
     @Override
     public void onEnable() {
-        // Save the default config file if it does not exist
-        this.saveDefaultConfig();
+        instance = this;
+        warningHandler = new WarningHandler(this);
 
-        // Register the command and set its executor
-        getCommand("admintoggle").setExecutor(new AdminToggleCommand());
-    }
-
-    public class AdminToggleCommand implements CommandExecutor {
-        @Override
-        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-            if (sender instanceof Player) {
-                Player player = (Player) sender;
-
-                // Check for permission
-                if (!player.hasPermission("yetisutils.admintoggle")) {
-                    player.sendMessage("You do not have permission to use this command.");
-                    return true;
-                }
-
-                UUID playerUUID = player.getUniqueId();
-
-                // Check if there is an existing stored inventory
-                ItemStack[] storedInventory = loadInventoryFromFile(playerUUID);
-                if (storedInventory != null && !isInventoryEmpty(storedInventory)) {
-                    // Retrieve player's inventory
-                    player.getInventory().setContents(storedInventory);
-                    deleteInventoryFile(playerUUID); // Remove the file after retrieving
-                    player.sendMessage("Your inventory has been retrieved.");
-                } else {
-                    // Store player's current inventory
-                    saveInventoryToFile(playerUUID, player.getInventory().getContents());
-                    player.getInventory().clear();
-                    player.sendMessage("Your inventory has been stored.");
-                }
-                return true;
-            }
-            return false;
+        if (getCommand("adminmode") != null) {
+            getCommand("adminmode").setExecutor(new AdminModeCommand());
+        } else {
+            getLogger().severe("Command adminmode not found in plugin.yml");
         }
 
-        private boolean isInventoryEmpty(ItemStack[] inventory) {
-            for (ItemStack item : inventory) {
-                if (item != null) {
-                    return false;
+        if (getCommand("warn") != null) {
+            getCommand("warn").setExecutor(new WarnCommand());
+        } else {
+            getLogger().severe("Command warn not found in plugin.yml");
+        }
+
+        if (getCommand("warnings") != null) {
+            getCommand("warnings").setExecutor(new WarningsCommand());
+        } else {
+            getLogger().severe("Command warnings not found in plugin.yml");
+        }
+
+        Bukkit.getPluginManager().registerEvents(this, this);
+        loadInventories();
+    }
+
+    @Override
+    public void onDisable() {
+        saveInventories();
+    }
+
+    public class AdminModeCommand implements CommandExecutor {
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage("Only players can use this command.");
+                return true;
+            }
+            Player player = (Player) sender;
+            UUID uuid = player.getUniqueId();
+
+            if (adminInventories.containsKey(uuid)) {
+                // Switch to player inventory
+                playerInventories.put(uuid, player.getInventory().getContents());
+                player.getInventory().setContents(adminInventories.remove(uuid));
+                player.sendMessage("Switched to player inventory.");
+            } else {
+                // Switch to admin inventory
+                adminInventories.put(uuid, player.getInventory().getContents());
+                if (playerInventories.containsKey(uuid)) {
+                    player.getInventory().setContents(playerInventories.get(uuid));
+                } else {
+                    player.getInventory().clear(); // Create an empty admin inventory if none exists
                 }
+                player.sendMessage("Switched to admin inventory.");
             }
             return true;
         }
+    }
 
-        private void saveInventoryToFile(UUID playerUUID, ItemStack[] inventory) {
-            File folder = new File(getDataFolder(), "inventories");
-            if (!folder.exists()) {
-                folder.mkdirs();
+    public class WarnCommand implements CommandExecutor {
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            if (args.length != 1) {
+                sender.sendMessage("Usage: /warn <player>");
+                return true;
             }
-            File file = new File(folder, playerUUID.toString() + ".yml");
-            FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+            Player target = Bukkit.getPlayer(args[0]);
+            if (target == null) {
+                sender.sendMessage("Player not found.");
+                return true;
+            }
+            warningHandler.addWarning(target);
+            sender.sendMessage("Player " + target.getName() + " has been warned.");
+            return true;
+        }
+    }
 
-            if (inventory != null) {
-                List<Map<String, Object>> serializedInventory = new ArrayList<>();
-                for (ItemStack item : inventory) {
-                    serializedInventory.add(item == null ? null : item.serialize());
-                }
-                config.set("inventory", serializedInventory);
-                try {
-                    config.save(file);
-                } catch (IOException e) {
-                    getLogger().warning("Failed to save inventory for player " + playerUUID.toString() + ": " + e.getMessage());
-                }
+    public class WarningsCommand implements CommandExecutor {
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            if (args.length != 1) {
+                sender.sendMessage("Usage: /warnings <player>");
+                return true;
             }
+            Player target = Bukkit.getPlayer(args[0]);
+            if (target == null) {
+                sender.sendMessage("Player not found.");
+                return true;
+            }
+            int count = warningHandler.getWarnings(target);
+            sender.sendMessage("Player " + target.getName() + " has " + count + " warning(s).");
+            return true;
+        }
+    }
+
+    private void saveInventories() {
+        File folder = new File(getDataFolder(), "inventories");
+        if (!folder.exists()) {
+            folder.mkdirs();
         }
 
-        private ItemStack[] loadInventoryFromFile(UUID playerUUID) {
-            File folder = new File(getDataFolder(), "inventories");
-            File file = new File(folder, playerUUID.toString() + ".yml");
-            if (!file.exists()) {
-                return null;
-            }
+        saveInventoryMap(playerInventories, new File(folder, "player_inventories.yml"));
+        saveInventoryMap(adminInventories, new File(folder, "admin_inventories.yml"));
+    }
 
-            FileConfiguration config = YamlConfiguration.loadConfiguration(file);
-            List<Map<String, Object>> inventoryList = (List<Map<String, Object>>) config.get("inventory");
-            if (inventoryList == null) {
-                return null;
+    private void saveInventoryMap(Map<UUID, ItemStack[]> inventoryMap, File file) {
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        for (Map.Entry<UUID, ItemStack[]> entry : inventoryMap.entrySet()) {
+            List<Map<String, Object>> serializedInventory = new ArrayList<>();
+            for (ItemStack item : entry.getValue()) {
+                serializedInventory.add(item == null ? null : item.serialize());
             }
+            config.set(entry.getKey().toString(), serializedInventory);
+        }
+        try {
+            config.save(file);
+        } catch (IOException e) {
+            getLogger().warning("Failed to save inventories: " + e.getMessage());
+        }
+    }
 
-            ItemStack[] inventory = new ItemStack[inventoryList.size()];
-            for (int i = 0; i < inventoryList.size(); i++) {
-                Map<String, Object> itemData = inventoryList.get(i);
+    private void loadInventories() {
+        File folder = new File(getDataFolder(), "inventories");
+        if (!folder.exists()) {
+            folder.mkdirs();
+            return;
+        }
+
+        loadInventoryMap(playerInventories, new File(folder, "player_inventories.yml"));
+        loadInventoryMap(adminInventories, new File(folder, "admin_inventories.yml"));
+    }
+
+    private void loadInventoryMap(Map<UUID, ItemStack[]> inventoryMap, File file) {
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        for (String key : config.getKeys(false)) {
+            UUID uuid = UUID.fromString(key);
+            List<Map<String, Object>> serializedInventory = (List<Map<String, Object>>) config.get(key);
+            ItemStack[] inventory = new ItemStack[serializedInventory.size()];
+            for (int i = 0; i < serializedInventory.size(); i++) {
+                Map<String, Object> itemData = serializedInventory.get(i);
                 inventory[i] = itemData == null ? null : ItemStack.deserialize(itemData);
             }
-
-            return inventory;
-        }
-
-        private void deleteInventoryFile(UUID playerUUID) {
-            File folder = new File(getDataFolder(), "inventories");
-            File file = new File(folder, playerUUID.toString() + ".yml");
-            if (file.exists()) {
-                file.delete();
-            }
+            inventoryMap.put(uuid, inventory);
         }
     }
 }
