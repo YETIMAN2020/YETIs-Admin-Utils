@@ -1,60 +1,77 @@
 # YETIsUtils
 
-**Version:** 2.0  
-**API Version:** 1.20  
-
 ## Features
 
-### Admin Mode Command (`/adminmode`)
-
-- Allows administrators to toggle between their regular player inventory and a separate admin inventory. This ensures that their personal inventory remains unaffected while performing administrative tasks.
-
-### Warning System
-
-- **Warn Command (`/warn <player>`):**
-  - Allows administrators to issue warnings to players.
-  - Warnings are saved persistently and include the player's username and IP address.
-  
-- **Warnings Command (`/warnings <player>`):**
-  - Allows administrators to check the total number of warnings a player has received.
-
-### Persistent Storage
-
-- Inventories and warnings are saved to files, ensuring data persistence across server restarts.
-- Inventories are stored in `player_inventories.yml` and `admin_inventories.yml` within the `inventories` folder.
-- Warnings are stored in `warnings.yml`.
-
-## Permissions
-
-- **yetisutils.warn:**
-  - Allows the player to warn others.
-  - Default: OP
-- **yetisutils.warnings:**
-  - Allows the player to check warnings.
-  - Default: OP
-
-## Commands
-
-- **/adminmode:**
-  - Usage: `/adminmode`
-  - Description: Toggles between admin and player inventories.
-
-- **/warn <player>:**
-  - Usage: `/warn <player>`
-  - Description: Issues a warning to the specified player.
-
-- **/warnings <player>:**
-  - Usage: `/warnings <player>`
-  - Description: Checks the number of warnings the specified player has received.
+- **Admin Mode**: Toggle between player and admin inventories using `/adminmode`.
+- **Player Warnings**: Issue warnings to players with a specified reason using `/warn <player> <reason>`.
+- **Warning Logs**: Check the number of warnings a player has received using `/warnings <player>`.
+- **Warning GUI**: View and interact with player warnings and detailed warning logs via a GUI using `/warninggui`.
 
 ## Installation
 
-1. Download the latest version of YETIsUtils.
-2. Place the plugin JAR file into your server's `plugins` directory.
-3. Restart the server to load the plugin.
-4. Configure the plugin permissions as needed.
+1. Download the latest release of YETIsUtils.
+2. Place the downloaded JAR file into your server's `plugins` directory.
+3. Restart your server to generate the configuration files and activate the plugin.
 
-## Configuration
+## Commands
 
-none :/
+- `/adminmode`
+  - **Description**: Toggle between player and admin inventories.
+  - **Permission**: `yetisutils.adminmode`
+- `/warn <player> <reason>`
+  - **Description**: Issue a warning to a player with a specified reason.
+  - **Permission**: `yetisutils.warn`
+- `/warnings <player>`
+  - **Description**: Check the number of warnings a player has received.
+  - **Permission**: `yetisutils.warnings`
+- `/warninggui`
+  - **Description**: Open the warnings GUI to view and interact with player warnings.
+  - **Permission**: `yetisutils.warninggui`
 
+## Permissions
+
+- `yetisutils.adminmode`
+  - **Description**: Allows the player to toggle between player and admin inventories.
+  - **Default**: OP
+- `yetisutils.warn`
+  - **Description**: Allows the player to issue warnings to others.
+  - **Default**: OP
+- `yetisutils.warnings`
+  - **Description**: Allows the player to check the number of warnings another player has received.
+  - **Default**: OP
+- `yetisutils.warninggui`
+  - **Description**: Allows the player to open the warnings GUI.
+  - **Default**: OP
+
+## Usage
+
+### Toggling Admin Mode
+
+Use the `/adminmode` command to switch between your player inventory and a separate admin inventory. This allows admins to manage items without cluttering their personal inventory.
+
+### Issuing Warnings
+
+To issue a warning to a player, use the `/warn <player> <reason>` command. This will log the warning along with the specified reason and timestamp.
+
+### Viewing Warnings
+
+Use the `/warnings <player>` command to check how many warnings a player has received.
+
+### Warning GUI
+
+Open the warning GUI with the `/warninggui` command. In this GUI:
+- Click on a player's head to view detailed warning logs.
+- Each warning log includes the warning number, reason, and timestamp.
+- A "Back" button in the bottom left corner of the reasons GUI allows you to return to the player warnings view.
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request with your improvements and bug fixes.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+For support or inquiries, please open an issue on the GitHub repository.
