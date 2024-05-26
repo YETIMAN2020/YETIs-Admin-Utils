@@ -1,21 +1,22 @@
 package org.yetiman.yetisutils;
 
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-public class YETIsUtils extends JavaPlugin implements Listener {
+public class YETIsUtils extends JavaPlugin {
     private static YETIsUtils instance;
     private final Map<UUID, ItemStack[]> playerInventories = new HashMap<>();
     private final Map<UUID, ItemStack[]> adminInventories = new HashMap<>();
@@ -29,6 +30,7 @@ public class YETIsUtils extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         instance = this;
+        saveDefaultConfig();
         warningHandler = new WarningHandler(this);
         warningGUI = new WarningGUI(this, warningHandler);
 
@@ -40,23 +42,32 @@ public class YETIsUtils extends JavaPlugin implements Listener {
 
         if (getCommand("warn") != null) {
             getCommand("warn").setExecutor(new WarnCommand());
+            getCommand("warn").setTabCompleter(new WarnCommand());
         } else {
             getLogger().severe("Command warn not found in plugin.yml");
         }
 
         if (getCommand("warnings") != null) {
             getCommand("warnings").setExecutor(new WarningsCommand());
+            getCommand("warnings").setTabCompleter(new WarningsCommand());
         } else {
             getLogger().severe("Command warnings not found in plugin.yml");
         }
 
-        if (getCommand("warninggui") != null) {
-            getCommand("warninggui").setExecutor(new WarningGUICommand());
+        if (getCommand("warnmenu") != null) {
+            getCommand("warnmenu").setExecutor(new WarningGUICommand());
         } else {
-            getLogger().severe("Command warninggui not found in plugin.yml");
+            getLogger().severe("Command warnmenu not found in plugin.yml");
         }
 
-        Bukkit.getPluginManager().registerEvents(this, this);
+        if (getCommand("warnclear") != null) {
+            getCommand("warnclear").setExecutor(new WarnClearCommand());
+            getCommand("warnclear").setTabCompleter(new WarnClearCommand());
+        } else {
+            getLogger().severe("Command warnclear not found in plugin.yml");
+        }
+
+        Bukkit.getPluginManager().registerEvents(warningGUI, this);
         loadInventories();
     }
 
@@ -94,40 +105,80 @@ public class YETIsUtils extends JavaPlugin implements Listener {
         }
     }
 
-    public class WarnCommand implements CommandExecutor {
+    public class WarnCommand implements CommandExecutor, TabCompleter {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
             if (args.length < 2) {
                 sender.sendMessage("Usage: /warn <player> <reason>");
                 return true;
             }
-            Player target = Bukkit.getPlayer(args[0]);
-            if (target == null) {
+            OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
+            if (target == null || !target.hasPlayedBefore()) {
                 sender.sendMessage("Player not found.");
                 return true;
             }
             String reason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-            warningHandler.addWarning(target, reason);
+            String issuer = sender.getName();
+            if (target.isOnline()) {
+                Player onlinePlayer = target.getPlayer();
+                if (onlinePlayer != null) {
+                    warningHandler.addWarning(onlinePlayer, reason, issuer);
+                }
+            } else {
+                UUID playerId = target.getUniqueId();
+                String playerName = target.getName();
+                String playerIP = ""; // IP address is not available for offline players
+                warningHandler.addWarning(playerId, playerName, playerIP, reason, issuer);
+            }
             sender.sendMessage("Player " + target.getName() + " has been warned for: " + reason);
             return true;
         }
+
+        @Override
+        public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+            if (args.length == 1) {
+                List<String> completions = new ArrayList<>();
+                String partialName = args[0].toLowerCase();
+
+                for (OfflinePlayer player : Bukkit.getOfflinePlayers()) {
+                    String name = player.getName();
+                    if (name != null && name.toLowerCase().startsWith(partialName)) {
+                        completions.add(name);
+                    }
+                }
+                return completions;
+            }
+            return Collections.emptyList();
+        }
     }
 
-    public class WarningsCommand implements CommandExecutor {
+    public class WarningsCommand implements CommandExecutor, TabCompleter {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
             if (args.length != 1) {
                 sender.sendMessage("Usage: /warnings <player>");
                 return true;
             }
-            Player target = Bukkit.getPlayer(args[0]);
-            if (target == null) {
+            OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
+            if (target == null || !target.hasPlayedBefore()) {
                 sender.sendMessage("Player not found.");
                 return true;
             }
-            int count = warningHandler.getWarnings(target);
+            int count = warningHandler.getWarnings(target.getUniqueId());
             sender.sendMessage("Player " + target.getName() + " has " + count + " warning(s).");
             return true;
+        }
+
+        @Override
+        public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+            if (args.length == 1) {
+                List<String> playerNames = new ArrayList<>();
+                for (OfflinePlayer player : Bukkit.getOfflinePlayers()) {
+                    playerNames.add(player.getName());
+                }
+                return playerNames;
+            }
+            return Collections.emptyList();
         }
     }
 
@@ -141,6 +192,51 @@ public class YETIsUtils extends JavaPlugin implements Listener {
             Player player = (Player) sender;
             warningGUI.openWarningGUI(player);
             return true;
+        }
+    }
+
+    public class WarnClearCommand implements CommandExecutor, TabCompleter {
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            if (args.length != 2) {
+                sender.sendMessage("Usage: /warnclear <player> <warning number>");
+                return true;
+            }
+            OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
+            if (target == null || !target.hasPlayedBefore()) {
+                sender.sendMessage("Player not found.");
+                return true;
+            }
+            int warningNumber;
+            try {
+                warningNumber = Integer.parseInt(args[1]) - 1;
+            } catch (NumberFormatException e) {
+                sender.sendMessage("Warning number must be an integer.");
+                return true;
+            }
+            if (warningHandler.clearWarning(target.getUniqueId(), warningNumber)) {
+                sender.sendMessage("Warning " + (warningNumber + 1) + " for player " + target.getName() + " has been cleared.");
+            } else {
+                sender.sendMessage("Player " + target.getName() + " does not have a warning " + (warningNumber + 1) + ".");
+            }
+            return true;
+        }
+
+        @Override
+        public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+            if (args.length == 1) {
+                List<String> completions = new ArrayList<>();
+                String partialName = args[0].toLowerCase();
+
+                for (OfflinePlayer player : Bukkit.getOfflinePlayers()) {
+                    String name = player.getName();
+                    if (name != null && name.toLowerCase().startsWith(partialName)) {
+                        completions.add(name);
+                    }
+                }
+                return completions;
+            }
+            return Collections.emptyList();
         }
     }
 

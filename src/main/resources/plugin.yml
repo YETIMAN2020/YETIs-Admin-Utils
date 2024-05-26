@@ -1,33 +1,47 @@
 name: YETIsUtils
-version: 1.1
+version: 2.1
 main: org.yetiman.yetisutils.YETIsUtils
 api-version: 1.20
 commands:
   adminmode:
-    description: Toggle between admin and player inventories.
+    description: Toggle between player and admin inventories.
     usage: /adminmode
   warn:
     description: Warn a player.
     usage: /warn <player> <reason>
     permission: yetisutils.warn
     permission-message: You do not have permission to warn players.
+    tab-completer: org.yetiman.yetisutils.YETIsUtils$WarnCommand
   warnings:
     description: Check the number of warnings a player has.
     usage: /warnings <player>
     permission: yetisutils.warnings
     permission-message: You do not have permission to check warnings.
-  warninggui:
+    tab-completer: org.yetiman.yetisutils.YETIsUtils$WarningsCommand
+  warnmenu:
     description: Open the warnings GUI.
-    usage: /warninggui
-    permission: yetisutils.warninggui
+    usage: /warnmenu
+    permission: yetisutils.warnmenu
     permission-message: You do not have permission to open the warnings GUI.
+  warnclear:
+    description: Clear a specific warning for a player.
+    usage: /warnclear <player> <warning number>
+    permission: yetisutils.warnclear
+    permission-message: You do not have permission to clear warnings.
+    tab-completer: org.yetiman.yetisutils.YETIsUtils$WarnClearCommand
 permissions:
+  yetisutils.adminmode:
+    description: Allows the player to toggle between player and admin inventories.
+    default: op
   yetisutils.warn:
     description: Allows the player to warn others.
     default: op
   yetisutils.warnings:
-    description: Allows the player to check warnings.
+    description: Allows the player to check the number of warnings another player has received.
     default: op
-  yetisutils.warninggui:
+  yetisutils.warnmenu:
     description: Allows the player to open the warnings GUI.
+    default: op
+  yetisutils.warnclear:
+    description: Allows the player to clear specific warnings.
     default: op
