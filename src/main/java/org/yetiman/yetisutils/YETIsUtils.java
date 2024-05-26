@@ -23,6 +23,9 @@ public class YETIsUtils extends JavaPlugin {
     private WarningHandler warningHandler;
     private WarningGUI warningGUI;
 
+    private File warningsFile;
+    private FileConfiguration warningsConfig;
+
     public static YETIsUtils getInstance() {
         return instance;
     }
@@ -31,6 +34,7 @@ public class YETIsUtils extends JavaPlugin {
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
+        createWarningsFile();
         warningHandler = new WarningHandler(this);
         warningGUI = new WarningGUI(this, warningHandler);
 
@@ -67,6 +71,12 @@ public class YETIsUtils extends JavaPlugin {
             getLogger().severe("Command warnclear not found in plugin.yml");
         }
 
+        if (getCommand("mywarnings") != null) {
+            getCommand("mywarnings").setExecutor(new MyWarningsCommand(warningHandler));
+        } else {
+            getLogger().severe("Command mywarnings not found in plugin.yml");
+        }
+
         Bukkit.getPluginManager().registerEvents(warningGUI, this);
         loadInventories();
     }
@@ -74,6 +84,31 @@ public class YETIsUtils extends JavaPlugin {
     @Override
     public void onDisable() {
         saveInventories();
+    }
+
+    public void createWarningsFile() {
+        warningsFile = new File(getDataFolder(), "warnings.yml");
+        if (!warningsFile.exists()) {
+            warningsFile.getParentFile().mkdirs();
+            try {
+                warningsFile.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        warningsConfig = YamlConfiguration.loadConfiguration(warningsFile);
+    }
+
+    public FileConfiguration getWarningsConfig() {
+        return warningsConfig;
+    }
+
+    public void saveWarningsConfig() {
+        try {
+            warningsConfig.save(warningsFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public class AdminModeCommand implements CommandExecutor {
@@ -237,6 +272,43 @@ public class YETIsUtils extends JavaPlugin {
                 return completions;
             }
             return Collections.emptyList();
+        }
+    }
+
+    public class MyWarningsCommand implements CommandExecutor {
+        private final WarningHandler warningHandler;
+
+        public MyWarningsCommand(WarningHandler warningHandler) {
+            this.warningHandler = warningHandler;
+        }
+
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage("Only players can use this command.");
+                return true;
+            }
+
+            Player player = (Player) sender;
+            int count = warningHandler.getWarnings(player.getUniqueId());
+
+            if (count == 0) {
+                player.sendMessage("You have no warnings.");
+            } else {
+                player.sendMessage("You have " + count + " warning(s):");
+                for (int i = 0; i < count; i++) {
+                    String reason = warningHandler.getWarningReason(player.getUniqueId(), i);
+                    String issuer = warningHandler.getWarningIssuer(player.getUniqueId(), i);
+                    String date = warningHandler.getWarningDate(player.getUniqueId(), i);
+
+                    if (reason != null && issuer != null && date != null) {
+                        player.sendMessage((i + 1) + ". Reason: " + reason + " - Issued by: " + issuer + " - Date: " + date);
+                    } else {
+                        player.sendMessage((i + 1) + ". Reason: " + reason + " - Some information is missing.");
+                    }
+                }
+            }
+            return true;
         }
     }
 

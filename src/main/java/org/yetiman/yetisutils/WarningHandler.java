@@ -1,158 +1,115 @@
 package org.yetiman.yetisutils;
 
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 
-import java.io.File;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.List;
+import java.util.UUID;
 
 public class WarningHandler {
-    private final JavaPlugin plugin;
-    private final File warningFile;
-    private final FileConfiguration warningConfig;
-    private final boolean logTimeAndDate;
+    private final YETIsUtils plugin;
+    private final FileConfiguration warningsConfig;
 
-    private final Map<UUID, WarningData> warnings = new HashMap<>();
-
-    public WarningHandler(JavaPlugin plugin) {
+    public WarningHandler(YETIsUtils plugin) {
         this.plugin = plugin;
-        this.warningFile = new File(plugin.getDataFolder(), "warnings.yml");
-        this.warningConfig = YamlConfiguration.loadConfiguration(warningFile);
-        this.logTimeAndDate = plugin.getConfig().getBoolean("log-time-and-date", true);
-        loadWarnings();
-    }
-
-    public void addWarning(UUID playerId, String playerName, String playerIP, String reason, String issuer) {
-        WarningData data = warnings.getOrDefault(playerId, new WarningData(playerName, playerIP, 0, new ArrayList<>()));
-        if (logTimeAndDate) {
-            String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
-            data.incrementWarnings(reason, timestamp, issuer);
-        } else {
-            data.incrementWarnings(reason, null, issuer);
-        }
-        warnings.put(playerId, data);
-        saveWarnings();
+        this.warningsConfig = plugin.getWarningsConfig();
     }
 
     public void addWarning(Player player, String reason, String issuer) {
         UUID playerId = player.getUniqueId();
-        String playerName = player.getName();
-        String playerIP = player.getAddress().getAddress().getHostAddress();
-        addWarning(playerId, playerName, playerIP, reason, issuer);
-        player.sendMessage("You have been warned. Total warnings: " + getWarnings(player) + ". Reason: " + reason);
+        addWarning(playerId, player.getName(), player.getAddress().getAddress().getHostAddress(), reason, issuer);
     }
 
-    public int getWarnings(Player player) {
-        return warnings.getOrDefault(player.getUniqueId(), new WarningData(player.getName(), player.getAddress().getAddress().getHostAddress(), 0, new ArrayList<>())).getWarnings();
+    public void addWarning(UUID playerId, String playerName, String playerIP, String reason, String issuer) {
+        String playerPath = "warnings." + playerId;
+        List<String> reasons = warningsConfig.getStringList(playerPath + ".reasons");
+        reasons.add(reason);
+        List<String> issuers = warningsConfig.getStringList(playerPath + ".issuers");
+        issuers.add(issuer);
+        List<Long> dates = warningsConfig.getLongList(playerPath + ".dates");
+        dates.add(System.currentTimeMillis());
+        warningsConfig.set(playerPath + ".name", playerName);
+        warningsConfig.set(playerPath + ".ip", playerIP);
+        warningsConfig.set(playerPath + ".reasons", reasons);
+        warningsConfig.set(playerPath + ".issuers", issuers);
+        warningsConfig.set(playerPath + ".dates", dates);
+        plugin.saveWarningsConfig();
+
+        // Debugging: Log the warning being added
+        plugin.getLogger().info("Warning added: " + reason + " | Issued by: " + issuer + " | Date: " + new java.util.Date(dates.get(dates.size() - 1)));
+        plugin.getLogger().info("Current warning data: " + warningsConfig.getStringList(playerPath + ".reasons") +
+                ", " + warningsConfig.getStringList(playerPath + ".issuers") + ", " + warningsConfig.getLongList(playerPath + ".dates"));
     }
 
     public int getWarnings(UUID playerId) {
-        return warnings.getOrDefault(playerId, new WarningData("", "", 0, new ArrayList<>())).getWarnings();
+        String playerPath = "warnings." + playerId;
+        List<String> reasons = warningsConfig.getStringList(playerPath + ".reasons");
+        int warningsCount = reasons.size();
+        // Debugging: Log the number of warnings and reasons list
+        plugin.getLogger().info("Number of warnings for player " + playerId + ": " + warningsCount);
+        plugin.getLogger().info("Reasons list: " + reasons);
+        return warningsCount;
     }
 
-    public List<String> getReasons(UUID playerId) {
-        return warnings.getOrDefault(playerId, new WarningData("", "", 0, new ArrayList<>())).getDetailedReasons();
+    public String getWarningReason(UUID playerId, int index) {
+        String playerPath = "warnings." + playerId + ".reasons";
+        List<String> reasons = warningsConfig.getStringList(playerPath);
+        if (index >= 0 && index < reasons.size()) {
+            String reason = reasons.get(index);
+            // Debugging: Log the reason being retrieved
+            plugin.getLogger().info("Retrieved reason for warning " + (index + 1) + ": " + reason);
+            return reason;
+        }
+        plugin.getLogger().warning("No reason found for warning " + (index + 1));
+        return null;
     }
 
-    public Map<UUID, WarningData> getAllWarnings() {
-        return warnings;
+    public String getWarningIssuer(UUID playerId, int index) {
+        String playerPath = "warnings." + playerId + ".issuers";
+        List<String> issuers = warningsConfig.getStringList(playerPath);
+        if (index >= 0 && index < issuers.size()) {
+            String issuer = issuers.get(index);
+            // Debugging: Log the issuer being retrieved
+            plugin.getLogger().info("Retrieved issuer for warning " + (index + 1) + ": " + issuer);
+            return issuer;
+        }
+        plugin.getLogger().warning("No issuer found for warning " + (index + 1));
+        return null;
+    }
+
+    public String getWarningDate(UUID playerId, int index) {
+        String playerPath = "warnings." + playerId + ".dates";
+        List<Long> dates = warningsConfig.getLongList(playerPath);
+        if (index >= 0 && index < dates.size()) {
+            long timestamp = dates.get(index);
+            String date = new SimpleDateFormat("dd-MM-yy HH:mm").format(new java.util.Date(timestamp));
+            // Debugging: Log the date being retrieved
+            plugin.getLogger().info("Retrieved date for warning " + (index + 1) + ": " + date);
+            return date;
+        }
+        plugin.getLogger().warning("No date found for warning " + (index + 1));
+        return null;
     }
 
     public boolean clearWarning(UUID playerId, int index) {
-        WarningData data = warnings.get(playerId);
-        if (data != null && index >= 0 && index < data.getWarnings()) {
-            data.removeWarning(index);
-            if (data.getWarnings() == 0) {
-                warnings.remove(playerId);
-            }
-            saveWarnings();
+        String playerPath = "warnings." + playerId;
+        List<String> reasons = warningsConfig.getStringList(playerPath + ".reasons");
+        List<String> issuers = warningsConfig.getStringList(playerPath + ".issuers");
+        List<Long> dates = warningsConfig.getLongList(playerPath + ".dates");
+        if (index >= 0 && index < reasons.size()) {
+            reasons.remove(index);
+            issuers.remove(index);
+            dates.remove(index);
+            warningsConfig.set(playerPath + ".reasons", reasons);
+            warningsConfig.set(playerPath + ".issuers", issuers);
+            warningsConfig.set(playerPath + ".dates", dates);
+            plugin.saveWarningsConfig();
+            // Debugging: Log the warning being cleared
+            plugin.getLogger().info("Cleared warning " + (index + 1));
             return true;
         }
+        plugin.getLogger().warning("Failed to clear warning " + (index + 1) + " for player " + playerId);
         return false;
-    }
-
-    private void loadWarnings() {
-        if (warningFile.exists()) {
-            for (String key : warningConfig.getKeys(false)) {
-                UUID uuid = UUID.fromString(key);
-                String name = warningConfig.getString(key + ".name");
-                String ip = warningConfig.getString(key + ".ip");
-                int count = warningConfig.getInt(key + ".warnings");
-                List<String> reasons = warningConfig.getStringList(key + ".reasons");
-                warnings.put(uuid, new WarningData(name, ip, count, reasons));
-            }
-        }
-    }
-
-    private void saveWarnings() {
-        for (Map.Entry<UUID, WarningData> entry : warnings.entrySet()) {
-            UUID uuid = entry.getKey();
-            WarningData data = entry.getValue();
-            warningConfig.set(uuid.toString() + ".name", data.getName());
-            warningConfig.set(uuid.toString() + ".ip", data.getIp());
-            warningConfig.set(uuid.toString() + ".warnings", data.getWarnings());
-            warningConfig.set(uuid.toString() + ".reasons", data.getDetailedReasons());
-        }
-        try {
-            warningConfig.save(warningFile);
-        } catch (IOException e) {
-            plugin.getLogger().warning("Failed to save warnings: " + e.getMessage());
-        }
-    }
-
-    public static class WarningData {
-        private final String name;
-        private final String ip;
-        private int warnings;
-        private List<String> detailedReasons;
-
-        public WarningData(String name, String ip, int warnings, List<String> detailedReasons) {
-            this.name = name;
-            this.ip = ip;
-            this.warnings = warnings;
-            this.detailedReasons = detailedReasons;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public String getIp() {
-            return ip;
-        }
-
-        public int getWarnings() {
-            return warnings;
-        }
-
-        public List<String> getDetailedReasons() {
-            return detailedReasons;
-        }
-
-        public void setDetailedReasons(List<String> detailedReasons) {
-            this.detailedReasons = detailedReasons;
-        }
-
-        public void incrementWarnings(String reason, String timestamp, String issuer) {
-            this.warnings++;
-            String detailedReason = "Reason: " + reason + "\nIssued by: " + issuer;
-            if (timestamp != null) {
-                detailedReason += "\nDate: " + timestamp;
-            }
-            this.detailedReasons.add(detailedReason);
-        }
-
-        public void removeWarning(int index) {
-            if (index >= 0 && index < this.detailedReasons.size()) {
-                this.detailedReasons.remove(index);
-                this.warnings--;
-            }
-        }
     }
 }

@@ -3,5 +3,5 @@
 #creation date 23-05-2024
 #
 
-log-time-and-date: true
-
+log-time-and-date: true  #enable or disable the logging of when a warn was given
+enablePlayerWarningsView: true  #enable or disable player being able to view their own warns

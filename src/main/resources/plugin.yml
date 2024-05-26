@@ -1,47 +1,46 @@
 name: YETIsUtils
-version: 2.2
 main: org.yetiman.yetisutils.YETIsUtils
-api-version: 1.20
+version: 2.2
+description: A versatile Minecraft plugin providing admin utilities and a player warning system.
+author: YET1MAN
 commands:
   adminmode:
-    description: Toggle between player and admin inventories.
-    usage: /adminmode
+    description: Toggles admin mode.
+    permission: yetisutils.adminmode
   warn:
-    description: Warn a player.
+    description: Warns a player.
     usage: /warn <player> <reason>
     permission: yetisutils.warn
-    permission-message: You do not have permission to warn players.
-    tab-completer: org.yetiman.yetisutils.YETIsUtils$WarnCommand
   warnings:
-    description: Check the number of warnings a player has.
-    usage: /warnings <player>
+    description: Shows warnings of a player.
     permission: yetisutils.warnings
-    permission-message: You do not have permission to check warnings.
-    tab-completer: org.yetiman.yetisutils.YETIsUtils$WarningsCommand
   warnmenu:
-    description: Open the warnings GUI.
-    usage: /warnmenu
+    description: Opens the warnings menu.
     permission: yetisutils.warnmenu
-    permission-message: You do not have permission to open the warnings GUI.
   warnclear:
-    description: Clear a specific warning for a player.
+    description: Clears a specific warning of a player.
     usage: /warnclear <player> <warning number>
     permission: yetisutils.warnclear
-    permission-message: You do not have permission to clear warnings.
-    tab-completer: org.yetiman.yetisutils.YETIsUtils$WarnClearCommand
+  mywarnings:
+    description: Shows your own warnings.
+    usage: /mywarnings
+    permission: yetisutils.mywarnings
 permissions:
   yetisutils.adminmode:
-    description: Allows the player to toggle between player and admin inventories.
+    description: Allows the use of /adminmode command.
     default: op
   yetisutils.warn:
-    description: Allows the player to warn others.
+    description: Allows the use of /warn command.
     default: op
   yetisutils.warnings:
-    description: Allows the player to check the number of warnings another player has received.
+    description: Allows the use of /warnings command.
     default: op
   yetisutils.warnmenu:
-    description: Allows the player to open the warnings GUI.
+    description: Allows the use of /warnmenu command.
     default: op
   yetisutils.warnclear:
-    description: Allows the player to clear specific warnings.
+    description: Allows the use of /warnclear command.
     default: op
+  yetisutils.mywarnings:
+    description: Allows the use of /mywarnings command.
+    default: true
