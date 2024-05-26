@@ -1,16 +1,18 @@
 package org.yetiman.yetisutils;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.PluginManager;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,9 +24,8 @@ public class YETIsUtils extends JavaPlugin {
     private final Map<UUID, ItemStack[]> adminInventories = new HashMap<>();
     private WarningHandler warningHandler;
     private WarningGUI warningGUI;
-
-    private File warningsFile;
-    private FileConfiguration warningsConfig;
+    private boolean debug;
+    private boolean enablePlayerWarningsView;
 
     public static YETIsUtils getInstance() {
         return instance;
@@ -34,7 +35,7 @@ public class YETIsUtils extends JavaPlugin {
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
-        createWarningsFile();
+        updateConfigValues();
         warningHandler = new WarningHandler(this);
         warningGUI = new WarningGUI(this, warningHandler);
 
@@ -72,43 +73,66 @@ public class YETIsUtils extends JavaPlugin {
         }
 
         if (getCommand("mywarnings") != null) {
-            getCommand("mywarnings").setExecutor(new MyWarningsCommand(warningHandler));
+            getCommand("mywarnings").setExecutor(new MyWarningsCommand(warningHandler, this));
         } else {
             getLogger().severe("Command mywarnings not found in plugin.yml");
         }
 
+        if (getCommand("yetisutils") != null) {
+            ReloadCommand reloadCommand = new ReloadCommand(this);
+            getCommand("yetisutils").setExecutor(reloadCommand);
+            getCommand("yetisutils").setTabCompleter(reloadCommand);
+        } else {
+            getLogger().severe("Command yetisutils not found in plugin.yml");
+        }
+
         Bukkit.getPluginManager().registerEvents(warningGUI, this);
         loadInventories();
+        Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.YELLOW + "[YETIsUtils] " + ChatColor.BLUE + "Plugin loaded");
     }
 
     @Override
     public void onDisable() {
         saveInventories();
+        Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.YELLOW + "[YETIsUtils] " + ChatColor.BLUE + "Plugin unloaded");
     }
 
-    public void createWarningsFile() {
-        warningsFile = new File(getDataFolder(), "warnings.yml");
-        if (!warningsFile.exists()) {
-            warningsFile.getParentFile().mkdirs();
-            try {
-                warningsFile.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        warningsConfig = YamlConfiguration.loadConfiguration(warningsFile);
+    public boolean isDebug() {
+        return debug;
+    }
+
+    public boolean isEnablePlayerWarningsView() {
+        return enablePlayerWarningsView;
     }
 
     public FileConfiguration getWarningsConfig() {
-        return warningsConfig;
+        File warningsFile = new File(getDataFolder(), "warnings.yml");
+        return YamlConfiguration.loadConfiguration(warningsFile);
     }
 
     public void saveWarningsConfig() {
         try {
-            warningsConfig.save(warningsFile);
+            File warningsFile = new File(getDataFolder(), "warnings.yml");
+            getWarningsConfig().save(warningsFile);
         } catch (IOException e) {
-            e.printStackTrace();
+            getLogger().warning("Failed to save warnings configuration: " + e.getMessage());
         }
+    }
+
+    public void reloadWarningsConfig() {
+        File warningsFile = new File(getDataFolder(), "warnings.yml");
+        YamlConfiguration.loadConfiguration(warningsFile);
+    }
+
+    public void updateConfigValues() {
+        debug = getConfig().getBoolean("debug", false);
+        enablePlayerWarningsView = getConfig().getBoolean("enablePlayerWarningsView", true);
+    }
+
+    public void reloadPluginConfig() {
+        reloadConfig();
+        updateConfigValues();
+        reloadWarningsConfig();
     }
 
     public class AdminModeCommand implements CommandExecutor {
@@ -277,15 +301,22 @@ public class YETIsUtils extends JavaPlugin {
 
     public class MyWarningsCommand implements CommandExecutor {
         private final WarningHandler warningHandler;
+        private final YETIsUtils plugin;
 
-        public MyWarningsCommand(WarningHandler warningHandler) {
+        public MyWarningsCommand(WarningHandler warningHandler, YETIsUtils plugin) {
             this.warningHandler = warningHandler;
+            this.plugin = plugin;
         }
 
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
             if (!(sender instanceof Player)) {
                 sender.sendMessage("Only players can use this command.");
+                return true;
+            }
+
+            if (!plugin.isEnablePlayerWarningsView()) {
+                sender.sendMessage("Viewing your own warnings is currently disabled.");
                 return true;
             }
 
@@ -300,15 +331,39 @@ public class YETIsUtils extends JavaPlugin {
                     String reason = warningHandler.getWarningReason(player.getUniqueId(), i);
                     String issuer = warningHandler.getWarningIssuer(player.getUniqueId(), i);
                     String date = warningHandler.getWarningDate(player.getUniqueId(), i);
-
-                    if (reason != null && issuer != null && date != null) {
-                        player.sendMessage((i + 1) + ". Reason: " + reason + " - Issued by: " + issuer + " - Date: " + date);
-                    } else {
-                        player.sendMessage((i + 1) + ". Reason: " + reason + " - Some information is missing.");
-                    }
+                    player.sendMessage((i + 1) + ". " + reason + " | Issued by: " + issuer + " | Date: " + date);
                 }
             }
             return true;
+        }
+    }
+
+    public class ReloadCommand implements CommandExecutor, TabCompleter {
+        private final YETIsUtils plugin;
+
+        public ReloadCommand(YETIsUtils plugin) {
+            this.plugin = plugin;
+        }
+
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            plugin.reloadPluginConfig();
+            sender.sendMessage(ChatColor.YELLOW + "[YETIsUtils] " + ChatColor.BLUE + "Configurations reloaded.");
+            return true;
+        }
+
+        @Override
+        public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+            if (args.length == 1) {
+                List<String> completions = new ArrayList<>();
+                String partial = args[0].toLowerCase();
+
+                if ("reload".startsWith(partial)) {
+                    completions.add("reload");
+                }
+                return completions;
+            }
+            return Collections.emptyList();
         }
     }
 

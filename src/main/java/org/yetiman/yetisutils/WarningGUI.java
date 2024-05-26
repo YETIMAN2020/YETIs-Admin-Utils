@@ -1,16 +1,17 @@
 package org.yetiman.yetisutils;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,76 +27,82 @@ public class WarningGUI implements Listener {
     }
 
     public void openWarningGUI(Player player) {
-        Inventory inventory = Bukkit.createInventory(null, 45, "Warnings");
-        for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
-            int warningsCount = warningHandler.getWarnings(offlinePlayer.getUniqueId());
-            if (warningsCount > 0) {
-                ItemStack playerHead = new ItemStack(Material.PLAYER_HEAD);
-                ItemMeta meta = playerHead.getItemMeta();
-                meta.setDisplayName(offlinePlayer.getName());
-                List<String> lore = new ArrayList<>();
-                lore.add("Warnings: " + warningsCount);
-                meta.setLore(lore);
-                playerHead.setItemMeta(meta);
-                inventory.addItem(playerHead);
+        Inventory inv = Bukkit.createInventory(null, 45, "Player Warnings");
+        for (UUID uuid : warningHandler.getAllPlayerUUIDs()) {
+            ItemStack head = getPlayerHead(Bukkit.getOfflinePlayer(uuid));
+            ItemMeta meta = head.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName(Bukkit.getOfflinePlayer(uuid).getName());
+                head.setItemMeta(meta);
             }
+            inv.addItem(head);
         }
-        player.openInventory(inventory);
+        ItemStack exitButton = createGuiItem(Material.BARRIER, ChatColor.RED + "Exit");
+        inv.setItem(44, exitButton);
+        player.openInventory(inv);
+    }
+
+    public void openReasonsGUI(Player player, UUID targetUUID) {
+        Inventory inv = Bukkit.createInventory(null, 45, "Warning Reasons for " + Bukkit.getOfflinePlayer(targetUUID).getName());
+        int warningCount = warningHandler.getWarnings(targetUUID);
+        for (int i = 0; i < warningCount; i++) {
+            String reason = warningHandler.getWarningReason(targetUUID, i);
+            String issuer = warningHandler.getWarningIssuer(targetUUID, i);
+            String date = warningHandler.getWarningDate(targetUUID, i);
+            ItemStack paper = createGuiItem(Material.PAPER, ChatColor.YELLOW + "Warning " + (i + 1),
+                    ChatColor.GOLD + reason,
+                    ChatColor.AQUA + "Issued by: " + issuer,
+                    ChatColor.GREEN + "Date: " + date);
+            inv.addItem(paper);
+        }
+        ItemStack backButton = createGuiItem(Material.BARRIER, ChatColor.RED + "Back");
+        inv.setItem(44, backButton);
+        player.openInventory(inv);
+    }
+
+    private ItemStack getPlayerHead(OfflinePlayer player) {
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        if (meta != null) {
+            meta.setOwningPlayer(player);
+            head.setItemMeta(meta);
+        }
+        return head;
+    }
+
+    private ItemStack createGuiItem(Material material, String name, String... lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(name);
+            List<String> metaLore = new ArrayList<>();
+            for (String loreEntry : lore) {
+                metaLore.add(loreEntry);
+            }
+            meta.setLore(metaLore);
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getView().getTitle().equals("Warnings") && event.getCurrentItem() != null) {
+        if (event.getView().getTitle().equals("Player Warnings")) {
             event.setCancelled(true);
-            ItemStack clickedItem = event.getCurrentItem();
-            if (clickedItem.getType() == Material.PLAYER_HEAD) {
+            if (event.getCurrentItem() != null && event.getCurrentItem().getType() == Material.PLAYER_HEAD) {
                 Player player = (Player) event.getWhoClicked();
-                String playerName = clickedItem.getItemMeta().getDisplayName();
+                String playerName = event.getCurrentItem().getItemMeta().getDisplayName();
                 OfflinePlayer target = Bukkit.getOfflinePlayer(playerName);
-                openWarningsDetailsGUI(player, target.getUniqueId());
+                openReasonsGUI(player, target.getUniqueId());
+            } else if (event.getCurrentItem() != null && event.getCurrentItem().getType() == Material.BARRIER) {
+                event.getWhoClicked().closeInventory();
             }
-        }
-    }
-
-    public void openWarningsDetailsGUI(Player player, UUID targetId) {
-        Inventory inventory = Bukkit.createInventory(null, 45, "Warning Reasons");
-        int warningsCount = warningHandler.getWarnings(targetId);
-        for (int i = 0; i < warningsCount; i++) {
-            ItemStack paper = new ItemStack(Material.PAPER);  // Changed from OAK_SIGN to PAPER
-            ItemMeta meta = paper.getItemMeta();
-            meta.setDisplayName("Warning " + (i + 1));
-            List<String> lore = new ArrayList<>();
-            lore.add("Reason: " + warningHandler.getWarningReason(targetId, i));
-            lore.add("Issued by: " + warningHandler.getWarningIssuer(targetId, i));
-            lore.add("Date: " + warningHandler.getWarningDate(targetId, i));
-            meta.setLore(lore);
-            paper.setItemMeta(meta);
-            inventory.addItem(paper);
-        }
-        ItemStack backButton = new ItemStack(Material.BARRIER);
-        ItemMeta backMeta = backButton.getItemMeta();
-        backMeta.setDisplayName("Back");
-        backButton.setItemMeta(backMeta);
-        inventory.setItem(40, backButton);
-        player.openInventory(inventory);
-    }
-
-    @EventHandler
-    public void onInventoryClickWarningReasons(InventoryClickEvent event) {
-        if (event.getView().getTitle().equals("Warning Reasons") && event.getCurrentItem() != null) {
+        } else if (event.getView().getTitle().startsWith("Warning Reasons for ")) {
             event.setCancelled(true);
-            ItemStack clickedItem = event.getCurrentItem();
-            if (clickedItem.getType() == Material.BARRIER) {
+            if (event.getCurrentItem() != null && event.getCurrentItem().getType() == Material.BARRIER) {
                 Player player = (Player) event.getWhoClicked();
                 openWarningGUI(player);
             }
-        }
-    }
-
-    @EventHandler
-    public void onInventoryClose(InventoryCloseEvent event) {
-        if (event.getView().getTitle().equals("Warnings") || event.getView().getTitle().equals("Warning Reasons")) {
-            // Handle any additional actions on inventory close if needed
         }
     }
 }

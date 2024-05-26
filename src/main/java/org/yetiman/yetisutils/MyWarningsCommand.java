@@ -7,15 +7,22 @@ import org.bukkit.entity.Player;
 
 public class MyWarningsCommand implements CommandExecutor {
     private final WarningHandler warningHandler;
+    private final YETIsUtils plugin;
 
-    public MyWarningsCommand(WarningHandler warningHandler) {
+    public MyWarningsCommand(WarningHandler warningHandler, YETIsUtils plugin) {
         this.warningHandler = warningHandler;
+        this.plugin = plugin;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("Only players can use this command.");
+            return true;
+        }
+
+        if (!plugin.isEnablePlayerWarningsView()) {
+            sender.sendMessage("Viewing your own warnings is currently disabled.");
             return true;
         }
 
@@ -30,12 +37,7 @@ public class MyWarningsCommand implements CommandExecutor {
                 String reason = warningHandler.getWarningReason(player.getUniqueId(), i);
                 String issuer = warningHandler.getWarningIssuer(player.getUniqueId(), i);
                 String date = warningHandler.getWarningDate(player.getUniqueId(), i);
-
-                if (reason != null && issuer != null && date != null) {
-                    player.sendMessage((i + 1) + ". Reason: " + reason + " - Issued by: " + issuer + " - Date: " + date);
-                } else {
-                    player.sendMessage((i + 1) + ". Reason: " + reason + " - Some information is missing.");
-                }
+                player.sendMessage((i + 1) + ". " + reason + " | Issued by: " + issuer + " | Date: " + date);
             }
         }
         return true;
