@@ -1,58 +1,69 @@
 name: YETIsUtils
+version: 2.6
 main: org.yetiman.yetisutils.YETIsUtils
-version: 2.5
-description: A collection of utilities for server admins, including admin inventory management and player warnings.
-author: YETIMAN
-
+api-version: 1.20
 commands:
   adminmode:
-    description: Switch between admin and player inventory
-    usage: /adminmode
+    description: Toggles between admin and player inventory
+    usage: /<command>
     permission: yetisutils.adminmode
   warn:
-    description: Warn a player
-    usage: /warn <player> <reason>
+    description: Issues a warning to a player
+    usage: /<command> <player> <reason>
     permission: yetisutils.warn
   warnings:
-    description: Check warnings of a player
-    usage: /warnings <player>
+    description: Views warnings of a player
+    usage: /<command> <player>
     permission: yetisutils.warnings
   warnmenu:
-    description: Open the warnings GUI
-    usage: /warnmenu
+    description: Opens the warning GUI
+    usage: /<command>
     permission: yetisutils.warnmenu
   warnclear:
-    description: Clear a specific warning of a player
-    usage: /warnclear <player> <warning number>
+    description: Clears a specific warning of a player
+    usage: /<command> <player> <warning number>
     permission: yetisutils.warnclear
   mywarnings:
-    description: Check your own warnings
-    usage: /mywarnings
+    description: Views your own warnings
+    usage: /<command>
     permission: yetisutils.mywarnings
+  report:
+    description: Submits a report
+    usage: /<command> <issue>
+    permission: yetisutils.report
+  reportmenu:
+    description: Opens the report GUI
+    usage: /<command>
+    permission: yetisutils.reportmenu
   yetisutils:
-    description: Reload the YETIsUtils configuration
-    usage: /yetisutils reload
+    description: Reloads the plugin configuration
+    usage: /<command> reload
     permission: yetisutils.reload
-
 permissions:
   yetisutils.adminmode:
-    description: Allows the use of /adminmode command
+    description: Allows using the adminmode command
     default: op
   yetisutils.warn:
-    description: Allows the use of /warn command
+    description: Allows issuing warnings
     default: op
   yetisutils.warnings:
-    description: Allows the use of /warnings command
+    description: Allows viewing warnings
     default: op
   yetisutils.warnmenu:
-    description: Allows the use of /warnmenu command
+    description: Allows opening the warning GUI
     default: op
   yetisutils.warnclear:
-    description: Allows the use of /warnclear command
+    description: Allows clearing warnings
     default: op
   yetisutils.mywarnings:
-    description: Allows the use of /mywarnings command
+    description: Allows viewing your own warnings
     default: true
+  yetisutils.report:
+    description: Allows submitting reports
+    default: true
+  yetisutils.reportmenu:
+    description: Allows opening the report GUI
+    default: op
   yetisutils.reload:
-    description: Allows the use of /yetisutils reload command
+    description: Allows reloading the plugin configuration
     default: op

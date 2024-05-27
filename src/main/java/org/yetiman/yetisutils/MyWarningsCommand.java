@@ -7,22 +7,15 @@ import org.bukkit.entity.Player;
 
 public class MyWarningsCommand implements CommandExecutor {
     private final WarningHandler warningHandler;
-    private final YETIsUtils plugin;
 
-    public MyWarningsCommand(WarningHandler warningHandler, YETIsUtils plugin) {
+    public MyWarningsCommand(WarningHandler warningHandler) {
         this.warningHandler = warningHandler;
-        this.plugin = plugin;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("Only players can use this command.");
-            return true;
-        }
-
-        if (!plugin.isEnablePlayerWarningsView()) {
-            sender.sendMessage("Viewing your own warnings is currently disabled.");
             return true;
         }
 
