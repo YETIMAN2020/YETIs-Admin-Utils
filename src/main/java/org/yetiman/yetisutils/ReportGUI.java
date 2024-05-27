@@ -1,7 +1,7 @@
 package org.yetiman.yetisutils;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -11,10 +11,9 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class ReportGUI implements Listener {
     private final YETIsUtils plugin;
@@ -23,117 +22,134 @@ public class ReportGUI implements Listener {
     public ReportGUI(YETIsUtils plugin, ReportHandler reportHandler) {
         this.plugin = plugin;
         this.reportHandler = reportHandler;
+        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
-    public static void openReportGUI(Player player, ReportHandler reportHandler) {
-        Inventory inv = Bukkit.createInventory(null, 54, "Player Reports");
+    public void openReportMenu(Player player) {
+        List<Map.Entry<String, Map<String, String>>> sortedReports = getSortedReports();
+        Inventory reportMenu = Bukkit.createInventory(null, 54, "Reports");
 
-        List<Report> allReports = reportHandler.getAllReports();
-        SimpleDateFormat dateFormatter = new SimpleDateFormat("dd-MM-yy HH-mm");
+        for (int i = 0; i < sortedReports.size(); i++) {
+            Map.Entry<String, Map<String, String>> entry = sortedReports.get(i);
+            String reportId = entry.getKey();
+            Map<String, String> report = entry.getValue();
 
-        for (int i = 0; i < allReports.size(); i++) {
-            Report report = allReports.get(i);
-            ItemStack paper = new ItemStack(Material.PAPER);
-            ItemMeta meta = paper.getItemMeta();
+            ItemStack item = new ItemStack(Material.PAPER);
+            ItemMeta meta = item.getItemMeta();
             if (meta != null) {
-                meta.setDisplayName(ChatColor.YELLOW + "Report #" + (i + 1));
-                List<String> lore = new ArrayList<>();
-                lore.add(ChatColor.GOLD + "Reporter: " + report.getReporter());
-                lore.add(ChatColor.GOLD + "Issue: " + report.getIssue());
-                lore.add(ChatColor.AQUA + "Date: " + dateFormatter.format(report.getDate()));
-                meta.setLore(lore);
-                paper.setItemMeta(meta);
+                meta.setDisplayName("Report #" + reportId);
+                meta.setLore(Arrays.asList(
+                        "Player: " + report.get("player"),
+                        "Issue: " + report.get("issue"),
+                        "Date: " + report.get("date")
+                ));
+                item.setItemMeta(meta);
             }
-            inv.addItem(paper);
+            reportMenu.addItem(item);
         }
 
-        player.openInventory(inv);
+        player.openInventory(reportMenu);
     }
 
-    public static void openReportDetailGUI(Player player, Report report, int reportIndex) {
-        Inventory inv = Bukkit.createInventory(null, 27, "Report Details");
+    public void openReportDetails(Player player, String reportId) {
+        Map<String, String> report = reportHandler.getReports().get(reportId);
+        Inventory reportDetails = Bukkit.createInventory(null, 27, "Report Details");
 
-        ItemStack paper = new ItemStack(Material.PAPER);
-        ItemMeta meta = paper.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.YELLOW + "Report Details");
-            List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.GOLD + "Reporter: " + report.getReporter());
-            lore.add(ChatColor.GOLD + "Issue: " + report.getIssue());
-            lore.add(ChatColor.AQUA + "Date: " + new SimpleDateFormat("dd-MM-yy HH-mm").format(report.getDate()));
-            meta.setLore(lore);
-            paper.setItemMeta(meta);
+        ItemStack reportItem = new ItemStack(Material.PAPER);
+        ItemMeta reportMeta = reportItem.getItemMeta();
+        if (reportMeta != null) {
+            reportMeta.setDisplayName("Report #" + reportId);
+            reportMeta.setLore(Arrays.asList(
+                    "Player: " + report.get("player"),
+                    "Issue: " + report.get("issue"),
+                    "Date: " + report.get("date")
+            ));
+            reportItem.setItemMeta(reportMeta);
         }
-        inv.setItem(13, paper); // Center the paper in the inventory
 
-        ItemStack closeButton = createGuiItem(Material.RED_STAINED_GLASS_PANE, ChatColor.RED + "Close Report");
-        inv.setItem(26, closeButton); // Place the close button in the bottom right
+        ItemStack backButton = new ItemStack(Material.BARRIER);
+        ItemMeta backMeta = backButton.getItemMeta();
+        if (backMeta != null) {
+            backMeta.setDisplayName("Back");
+            backButton.setItemMeta(backMeta);
+        }
 
-        inv.setItem(18, createGuiItem(Material.ARROW, ChatColor.GREEN + "Back to Reports"));
+        ItemStack teleportButton = new ItemStack(Material.ENDER_PEARL);
+        ItemMeta teleportMeta = teleportButton.getItemMeta();
+        if (teleportMeta != null) {
+            teleportMeta.setDisplayName("Teleport to Location");
+            teleportButton.setItemMeta(teleportMeta);
+        }
 
-        player.openInventory(inv);
+        ItemStack closeButton = new ItemStack(Material.RED_STAINED_GLASS_PANE);
+        ItemMeta closeMeta = closeButton.getItemMeta();
+        if (closeMeta != null) {
+            closeMeta.setDisplayName("Close Report");
+            closeButton.setItemMeta(closeMeta);
+        }
+
+        reportDetails.setItem(10, reportItem);
+        reportDetails.setItem(12, teleportButton);
+        reportDetails.setItem(14, closeButton);
+        reportDetails.setItem(16, backButton);
+
+        player.openInventory(reportDetails);
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getView().getTitle().equals("Player Reports")) {
-            event.setCancelled(true);
-            if (event.getCurrentItem() == null || event.getCurrentItem().getType() != Material.PAPER) {
-                return;
-            }
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        Player player = (Player) event.getWhoClicked();
 
-            Player player = (Player) event.getWhoClicked();
-            int reportIndex = event.getSlot();
-            List<Report> allReports = reportHandler.getAllReports();
-            if (reportIndex < allReports.size()) {
-                Report report = allReports.get(reportIndex);
-                openReportDetailGUI(player, report, reportIndex);
-            }
+        if (event.getView().getTitle().equals("Reports")) {
+            event.setCancelled(true);
+            ItemStack clickedItem = event.getCurrentItem();
+            if (clickedItem == null || !clickedItem.hasItemMeta()) return;
+
+            String reportId = clickedItem.getItemMeta().getDisplayName().split("#")[1];
+            openReportDetails(player, reportId);
         } else if (event.getView().getTitle().equals("Report Details")) {
             event.setCancelled(true);
-            if (event.getCurrentItem() == null) {
-                return;
-            }
-
-            Player player = (Player) event.getWhoClicked();
             ItemStack clickedItem = event.getCurrentItem();
-            ItemMeta meta = clickedItem.getItemMeta();
-            if (meta == null) {
-                return;
-            }
+            if (clickedItem == null || !clickedItem.hasItemMeta()) return;
 
-            if (clickedItem.getType() == Material.RED_STAINED_GLASS_PANE && meta.getDisplayName().equals(ChatColor.RED + "Close Report")) {
-                int reportIndex = event.getInventory().getItem(13).getAmount() - 1;
-                List<Report> allReports = reportHandler.getAllReports();
-                if (reportIndex < allReports.size()) {
-                    Report report = allReports.get(reportIndex);
-                    UUID reporterId = reportHandler.getReporterUUID(report);
-                    if (reporterId != null) {
-                        reportHandler.removeReport(reporterId, reportIndex);
-                        player.sendMessage(ChatColor.GREEN + "Report closed.");
-                        player.closeInventory();
-                        openReportGUI(player, reportHandler);
-                    }
+            ItemMeta meta = clickedItem.getItemMeta();
+            if (meta == null) return;
+
+            String displayName = meta.getDisplayName();
+            String reportId = event.getInventory().getItem(10).getItemMeta().getDisplayName().split("#")[1];
+
+            if (displayName.equals("Back")) {
+                openReportMenu(player);
+            } else if (displayName.equals("Teleport to Location")) {
+                Location location = reportHandler.getReportLocation(reportId);
+                if (location != null) {
+                    player.teleport(location);
+                    player.sendMessage("Teleported to the report location.");
+                } else {
+                    player.sendMessage("Failed to find the report location.");
                 }
-            } else if (clickedItem.getType() == Material.ARROW && meta.getDisplayName().equals(ChatColor.GREEN + "Back to Reports")) {
-                player.closeInventory();
-                openReportGUI(player, reportHandler);
+            } else if (displayName.equals("Close Report")) {
+                reportHandler.clearReport(reportId);
+                player.sendMessage("Report #" + reportId + " has been closed.");
+                openReportMenu(player);
             }
         }
     }
 
-    private static ItemStack createGuiItem(Material material, String name, String... lore) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(name);
-            List<String> metaLore = new ArrayList<>();
-            for (String loreEntry : lore) {
-                metaLore.add(loreEntry);
+    private List<Map.Entry<String, Map<String, String>>> getSortedReports() {
+        List<Map.Entry<String, Map<String, String>>> entries = new ArrayList<>(reportHandler.getReports().entrySet());
+
+        entries.sort(Comparator.comparing(entry -> {
+            String dateString = entry.getValue().get("date");
+            try {
+                return new SimpleDateFormat("dd-MM-yy HH:mm").parse(dateString);
+            } catch (ParseException e) {
+                e.printStackTrace();
+                return new Date(0); // fallback to epoch time in case of parse error
             }
-            meta.setLore(metaLore);
-            item.setItemMeta(meta);
-        }
-        return item;
+        }));
+
+        return entries;
     }
 }

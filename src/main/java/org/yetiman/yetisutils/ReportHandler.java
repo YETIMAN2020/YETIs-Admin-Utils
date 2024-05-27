@@ -1,5 +1,8 @@
 package org.yetiman.yetisutils;
 
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.entity.Player;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -10,87 +13,91 @@ import java.util.*;
 
 public class ReportHandler {
     private final YETIsUtils plugin;
-    private final Map<UUID, List<Report>> reports = new HashMap<>();
+    private final Map<String, Map<String, String>> reports;
+    private final File reportFile;
+    private final FileConfiguration reportConfig;
 
     public ReportHandler(YETIsUtils plugin) {
         this.plugin = plugin;
+        this.reports = new HashMap<>();
+        this.reportFile = new File(plugin.getDataFolder(), "reports.yml");
+        this.reportConfig = YamlConfiguration.loadConfiguration(reportFile);
         loadReports();
     }
 
-    public void addReport(UUID reporterId, String reporterName, String issue) {
-        Report report = new Report(reporterName, issue, new Date());
-        reports.computeIfAbsent(reporterId, k -> new ArrayList<>()).add(report);
+    public void addReport(Player player, String issue, Location location) {
+        String playerName = player.getName();
+        int reportNumber = 1;
+        while (reports.containsKey(playerName + reportNumber)) {
+            reportNumber++;
+        }
+        String reportId = playerName + reportNumber;
+
+        Map<String, String> report = new HashMap<>();
+        report.put("player", playerName);
+        report.put("issue", issue);
+        report.put("world", location.getWorld().getName());
+        report.put("x", String.valueOf(location.getX()));
+        report.put("y", String.valueOf(location.getY()));
+        report.put("z", String.valueOf(location.getZ()));
+        report.put("date", new SimpleDateFormat("dd-MM-yy HH:mm").format(new Date()));
+        reports.put(reportId, report);
         saveReports();
     }
 
-    public List<Report> getReports(UUID reporterId) {
-        return reports.getOrDefault(reporterId, Collections.emptyList());
+    public Map<String, Map<String, String>> getReports() {
+        return reports;
     }
 
-    public List<Report> getAllReports() {
-        List<Report> allReports = new ArrayList<>();
-        for (List<Report> reportList : reports.values()) {
-            allReports.addAll(reportList);
-        }
-        return allReports;
-    }
-
-    public void removeReport(UUID reporterId, int index) {
-        List<Report> reporterReports = reports.get(reporterId);
-        if (reporterReports != null && index >= 0 && index < reporterReports.size()) {
-            reporterReports.remove(index);
-            if (reporterReports.isEmpty()) {
-                reports.remove(reporterId);
-            }
-            saveReports();
-        }
-    }
-
-    public UUID getReporterUUID(Report report) {
-        for (Map.Entry<UUID, List<Report>> entry : reports.entrySet()) {
-            if (entry.getValue().contains(report)) {
-                return entry.getKey();
-            }
+    public Location getReportLocation(String reportId) {
+        Map<String, String> report = reports.get(reportId);
+        if (report != null) {
+            String world = report.get("world");
+            double x = Double.parseDouble(report.get("x"));
+            double y = Double.parseDouble(report.get("y"));
+            double z = Double.parseDouble(report.get("z"));
+            return new Location(Bukkit.getWorld(world), x, y, z);
         }
         return null;
     }
 
-    private void loadReports() {
-        File file = new File(plugin.getDataFolder(), "reports.yml");
-        if (!file.exists()) {
-            return;
-        }
-        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
-        for (String key : config.getKeys(false)) {
-            UUID reporterId = UUID.fromString(key);
-            List<Report> reporterReports = new ArrayList<>();
-            List<Map<?, ?>> reportList = config.getMapList(key);
-            for (Map<?, ?> map : reportList) {
-                String reporter = (String) map.get("reporter");
-                String issue = (String) map.get("issue");
-                Date date = new Date((Long) map.get("date"));
-                reporterReports.add(new Report(reporter, issue, date));
-            }
-            reports.put(reporterId, reporterReports);
+    public void clearReport(String reportId) {
+        if (reports.containsKey(reportId)) {
+            reports.remove(reportId);
+            saveReports();
         }
     }
 
-    private void saveReports() {
-        File file = new File(plugin.getDataFolder(), "reports.yml");
-        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
-        for (Map.Entry<UUID, List<Report>> entry : reports.entrySet()) {
-            List<Map<String, Object>> reportList = new ArrayList<>();
-            for (Report report : entry.getValue()) {
-                Map<String, Object> map = new HashMap<>();
-                map.put("reporter", report.getReporter());
-                map.put("issue", report.getIssue());
-                map.put("date", report.getDate().getTime());
-                reportList.add(map);
+    public void loadReports() {
+        reports.clear();
+        if (reportFile.exists()) {
+            for (String key : reportConfig.getKeys(false)) {
+                Map<String, String> report = new HashMap<>();
+                report.put("player", reportConfig.getString(key + ".player"));
+                report.put("issue", reportConfig.getString(key + ".issue"));
+                report.put("world", reportConfig.getString(key + ".world"));
+                report.put("x", reportConfig.getString(key + ".x"));
+                report.put("y", reportConfig.getString(key + ".y"));
+                report.put("z", reportConfig.getString(key + ".z"));
+                report.put("date", reportConfig.getString(key + ".date"));
+                reports.put(key, report);
             }
-            config.set(entry.getKey().toString(), reportList);
+        }
+    }
+
+    public void saveReports() {
+        for (String key : reports.keySet()) {
+            Map<String, String> report = reports.get(key);
+            reportConfig.set(key + ".player", report.get("player"));
+            reportConfig.set(key + ".issue", report.get("issue"));
+            reportConfig.set(key + ".world", report.get("world"));
+            reportConfig.set(key + ".x", report.get("x"));
+            reportConfig.set(key + ".y", report.get("y"));
+            reportConfig.set(key + ".z", report.get("z"));
+            reportConfig.set(key + ".date", report.get("date"));
         }
         try {
-            config.save(file);
+            reportConfig.save(reportFile);
         } catch (IOException e) {
             plugin.getLogger().warning("Failed to save reports: " + e.getMessage());
         }

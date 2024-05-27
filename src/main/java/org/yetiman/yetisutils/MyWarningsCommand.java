@@ -30,7 +30,7 @@ public class MyWarningsCommand implements CommandExecutor {
                 String reason = warningHandler.getWarningReason(player.getUniqueId(), i);
                 String issuer = warningHandler.getWarningIssuer(player.getUniqueId(), i);
                 String date = warningHandler.getWarningDate(player.getUniqueId(), i);
-                player.sendMessage((i + 1) + ". " + reason + " | Issued by: " + issuer + " | Date: " + date);
+                player.sendMessage((i + 1) + ". " + reason + " - " + issuer + " - " + date);
             }
         }
         return true;

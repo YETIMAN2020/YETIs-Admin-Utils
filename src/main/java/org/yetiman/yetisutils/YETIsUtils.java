@@ -1,16 +1,17 @@
 package org.yetiman.yetisutils;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
@@ -24,6 +25,7 @@ public class YETIsUtils extends JavaPlugin {
     private WarningHandler warningHandler;
     private WarningGUI warningGUI;
     private ReportHandler reportHandler;
+    private ReportGUI reportGUI;
 
     public static YETIsUtils getInstance() {
         return instance;
@@ -35,7 +37,27 @@ public class YETIsUtils extends JavaPlugin {
         saveDefaultConfig();
         warningHandler = new WarningHandler(this);
         warningGUI = new WarningGUI(this, warningHandler);
-        reportHandler = new ReportHandler(this);
+
+        if (getConfig().getBoolean("enableReportFeature", true)) {
+            reportHandler = new ReportHandler(this);
+            reportGUI = new ReportGUI(this, reportHandler);
+
+            if (getCommand("report") != null) {
+                getCommand("report").setExecutor(new ReportCommand(reportHandler));
+                getCommand("report").setTabCompleter(new ReportCommand(reportHandler));
+            } else {
+                getLogger().severe("Command report not found in plugin.yml");
+            }
+
+            if (getCommand("reportmenu") != null) {
+                getCommand("reportmenu").setExecutor(new ReportMenuCommand(reportHandler, reportGUI));
+            } else {
+                getLogger().severe("Command reportmenu not found in plugin.yml");
+            }
+
+            Bukkit.getPluginManager().registerEvents(reportGUI, this);
+            reportHandler.loadReports();
+        }
 
         if (getCommand("adminmode") != null) {
             getCommand("adminmode").setExecutor(new AdminModeCommand());
@@ -76,35 +98,24 @@ public class YETIsUtils extends JavaPlugin {
             getLogger().severe("Command mywarnings not found in plugin.yml");
         }
 
-        if (getCommand("report") != null) {
-            getCommand("report").setExecutor(new ReportCommand(reportHandler));
-        } else {
-            getLogger().severe("Command report not found in plugin.yml");
-        }
-
-        if (getCommand("reportmenu") != null) {
-            getCommand("reportmenu").setExecutor(new ReportMenuCommand(this, reportHandler));
-        } else {
-            getLogger().severe("Command reportmenu not found in plugin.yml");
-        }
-
         if (getCommand("yetisutils") != null) {
-            getCommand("yetisutils").setExecutor(new YETIsUtilsCommand());
-            getCommand("yetisutils").setTabCompleter(new YETIsUtilsCommand());
+            getCommand("yetisutils").setExecutor(new ReloadCommand(this));
         } else {
             getLogger().severe("Command yetisutils not found in plugin.yml");
         }
 
         Bukkit.getPluginManager().registerEvents(warningGUI, this);
-        Bukkit.getPluginManager().registerEvents(new ReportGUI(this, reportHandler), this);
         loadInventories();
-        getLogger().info("[YETIsUtils] Plugin loaded");
+        warningHandler.loadWarnings();
     }
 
     @Override
     public void onDisable() {
         saveInventories();
-        getLogger().info("[YETIsUtils] Plugin unloaded");
+        warningHandler.saveWarnings();
+        if (reportHandler != null) {
+            reportHandler.saveReports();
+        }
     }
 
     public class AdminModeCommand implements CommandExecutor {
@@ -150,17 +161,8 @@ public class YETIsUtils extends JavaPlugin {
             }
             String reason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
             String issuer = sender.getName();
-            if (target.isOnline()) {
-                Player onlinePlayer = target.getPlayer();
-                if (onlinePlayer != null) {
-                    warningHandler.addWarning(onlinePlayer, reason, issuer);
-                }
-            } else {
-                UUID playerId = target.getUniqueId();
-                String playerName = target.getName();
-                String playerIP = ""; // IP address is not available for offline players
-                warningHandler.addWarning(playerId, playerName, playerIP, reason, issuer);
-            }
+            String date = new SimpleDateFormat("dd-MM-yy HH:mm").format(new Date());
+            warningHandler.addWarning(target, reason, issuer, date);
             sender.sendMessage("Player " + target.getName() + " has been warned for: " + reason);
             return true;
         }
@@ -296,7 +298,7 @@ public class YETIsUtils extends JavaPlugin {
                     String reason = warningHandler.getWarningReason(player.getUniqueId(), i);
                     String issuer = warningHandler.getWarningIssuer(player.getUniqueId(), i);
                     String date = warningHandler.getWarningDate(player.getUniqueId(), i);
-                    player.sendMessage((i + 1) + ". " + reason + " | Issued by: " + issuer + " | Date: " + date);
+                    player.sendMessage((i + 1) + ". " + reason + " - " + issuer + " - " + date);
                 }
             }
             return true;
@@ -317,35 +319,32 @@ public class YETIsUtils extends JavaPlugin {
                 return true;
             }
 
-            if (args.length == 0) {
+            if (args.length < 1) {
                 sender.sendMessage("Usage: /report <issue>");
                 return true;
             }
 
             Player player = (Player) sender;
-            UUID playerId = player.getUniqueId();
-            String playerName = player.getName();
             String issue = String.join(" ", args);
-
-            reportHandler.addReport(playerId, playerName, issue);
-            sender.sendMessage("Your report has been submitted.");
-
+            Location location = player.getLocation();
+            reportHandler.addReport(player, issue, location);
+            sender.sendMessage("Report submitted. Thank you!");
             return true;
         }
 
         @Override
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-            return Collections.emptyList();
+            return Collections.emptyList(); // No tab completion needed for the report command
         }
     }
 
     public class ReportMenuCommand implements CommandExecutor {
-        private final YETIsUtils plugin;
         private final ReportHandler reportHandler;
+        private final ReportGUI reportGUI;
 
-        public ReportMenuCommand(YETIsUtils plugin, ReportHandler reportHandler) {
-            this.plugin = plugin;
+        public ReportMenuCommand(ReportHandler reportHandler, ReportGUI reportGUI) {
             this.reportHandler = reportHandler;
+            this.reportGUI = reportGUI;
         }
 
         @Override
@@ -356,35 +355,23 @@ public class YETIsUtils extends JavaPlugin {
             }
 
             Player player = (Player) sender;
-            ReportGUI.openReportGUI(player, reportHandler);
-
+            reportGUI.openReportMenu(player);
             return true;
         }
     }
 
-    public class YETIsUtilsCommand implements CommandExecutor, TabCompleter {
-        @Override
-        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-            if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
-                reloadConfig();
-                sender.sendMessage("[YETIsUtils] Plugin configurations reloaded.");
-                return true;
-            } else {
-                sender.sendMessage("Usage: /yetisutils reload");
-                return true;
-            }
+    public class ReloadCommand implements CommandExecutor {
+        private final YETIsUtils plugin;
+
+        public ReloadCommand(YETIsUtils plugin) {
+            this.plugin = plugin;
         }
 
         @Override
-        public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-            if (args.length == 1) {
-                List<String> completions = new ArrayList<>();
-                if ("reload".startsWith(args[0].toLowerCase())) {
-                    completions.add("reload");
-                }
-                return completions;
-            }
-            return Collections.emptyList();
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            plugin.reloadConfig();
+            sender.sendMessage("[YETIsUtils] Plugin configurations reloaded.");
+            return true;
         }
     }
 

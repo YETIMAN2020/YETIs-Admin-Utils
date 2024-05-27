@@ -1,134 +1,110 @@
 package org.yetiman.yetisutils;
 
-import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.event.Listener;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 
-import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class WarningGUI implements Listener {
-    private final JavaPlugin plugin;
+    private final YETIsUtils plugin;
     private final WarningHandler warningHandler;
 
-    public WarningGUI(JavaPlugin plugin, WarningHandler warningHandler) {
+    public WarningGUI(YETIsUtils plugin, WarningHandler warningHandler) {
         this.plugin = plugin;
         this.warningHandler = warningHandler;
+        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     public void openWarningGUI(Player player) {
-        Inventory inventory = Bukkit.createInventory(null, 54, "Player Warnings");
+        List<UUID> warnedPlayers = warningHandler.getWarnedPlayers();
+        Inventory warningMenu = Bukkit.createInventory(null, 54, "Player Warnings");
 
-        for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
-            if (warningHandler.getWarnings(offlinePlayer.getUniqueId()) > 0) {
-                ItemStack skull = new ItemStack(Material.PLAYER_HEAD);
-                SkullMeta skullMeta = (SkullMeta) skull.getItemMeta();
-                assert skullMeta != null;
-                skullMeta.setOwningPlayer(offlinePlayer);
-                skullMeta.setDisplayName(offlinePlayer.getName());
+        for (UUID uuid : warnedPlayers) {
+            OfflinePlayer warnedPlayer = Bukkit.getOfflinePlayer(uuid);
+            ItemStack skull = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta skullMeta = (SkullMeta) skull.getItemMeta();
+            if (skullMeta != null) {
+                skullMeta.setOwningPlayer(warnedPlayer);
+                skullMeta.setDisplayName(warnedPlayer.getName());
                 skull.setItemMeta(skullMeta);
-                inventory.addItem(skull);
             }
+            warningMenu.addItem(skull);
         }
 
-        ItemStack exitItem = new ItemStack(Material.BARRIER);
-        ItemMeta exitMeta = exitItem.getItemMeta();
-        assert exitMeta != null;
-        exitMeta.setDisplayName("§cExit");
-        exitItem.setItemMeta(exitMeta);
-        inventory.setItem(53, exitItem);
-
-        player.openInventory(inventory);
+        player.openInventory(warningMenu);
     }
 
-    public void openWarningReasonsGUI(Player player, OfflinePlayer target) {
-        Inventory inventory = Bukkit.createInventory(null, 54, "Warning Reasons for " + target.getName());
-        int warningsCount = warningHandler.getWarnings(target.getUniqueId());
+    public void openPlayerWarnings(Player player, OfflinePlayer target) {
+        List<Map<String, String>> warnings = warningHandler.getWarningsList(target.getUniqueId());
+        Inventory playerWarningsMenu = Bukkit.createInventory(null, 54, "Warnings for " + target.getName());
 
-        for (int i = 0; i < warningsCount; i++) {
-            ItemStack item = new ItemStack(Material.PAPER);
-            ItemMeta meta = item.getItemMeta();
-            assert meta != null;
-            meta.setDisplayName("Warning " + (i + 1));
-            List<String> lore = List.of(
-                    warningHandler.getWarningReason(target.getUniqueId(), i),
-                    "Issued by: " + warningHandler.getWarningIssuer(target.getUniqueId(), i),
-                    "Date: " + warningHandler.getWarningDate(target.getUniqueId(), i)
-            );
-            meta.setLore(lore);
-            item.setItemMeta(meta);
-            inventory.addItem(item);
+        for (int i = 0; i < warnings.size(); i++) {
+            Map<String, String> warning = warnings.get(i);
+            ItemStack paper = new ItemStack(Material.PAPER);
+            ItemMeta meta = paper.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("Warning #" + (i + 1));
+                meta.setLore(Arrays.asList(
+                        "Reason: " + warning.get("reason"),
+                        "Issuer: " + warning.get("issuer"),
+                        "Date: " + warning.get("date"),
+                        "IP: " + warning.get("ip")
+                ));
+                paper.setItemMeta(meta);
+            }
+            playerWarningsMenu.addItem(paper);
         }
 
-        ItemStack backItem = new ItemStack(Material.RED_STAINED_GLASS_PANE);
-        ItemMeta backMeta = backItem.getItemMeta();
-        assert backMeta != null;
-        backMeta.setDisplayName("§cBack");
-        backItem.setItemMeta(backMeta);
-        inventory.setItem(53, backItem);
+        ItemStack backButton = new ItemStack(Material.BARRIER);
+        ItemMeta backMeta = backButton.getItemMeta();
+        if (backMeta != null) {
+            backMeta.setDisplayName("Back");
+            backButton.setItemMeta(backMeta);
+        }
+        playerWarningsMenu.setItem(53, backButton);
 
-        player.openInventory(inventory);
+        player.openInventory(playerWarningsMenu);
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
-        Inventory inventory = event.getView().getTopInventory();
 
         if (event.getView().getTitle().equals("Player Warnings")) {
             event.setCancelled(true);
             ItemStack clickedItem = event.getCurrentItem();
-            if (clickedItem == null || clickedItem.getType() == Material.AIR) return;
+            if (clickedItem == null || !clickedItem.hasItemMeta()) return;
 
-            if (clickedItem.getType() == Material.PLAYER_HEAD) {
-                SkullMeta skullMeta = (SkullMeta) clickedItem.getItemMeta();
-                assert skullMeta != null;
-                OfflinePlayer target = Bukkit.getOfflinePlayer(skullMeta.getOwningPlayer().getUniqueId());
-                openWarningReasonsGUI(player, target);
-            } else if (clickedItem.getType() == Material.BARRIER) {
-                player.closeInventory();
-            }
-        } else if (event.getView().getTitle().startsWith("Warning Reasons for ")) {
+            SkullMeta skullMeta = (SkullMeta) clickedItem.getItemMeta();
+            if (skullMeta == null || skullMeta.getOwningPlayer() == null) return;
+
+            OfflinePlayer target = skullMeta.getOwningPlayer();
+            openPlayerWarnings(player, target);
+        } else if (event.getView().getTitle().startsWith("Warnings for ")) {
             event.setCancelled(true);
             ItemStack clickedItem = event.getCurrentItem();
-            if (clickedItem == null || clickedItem.getType() == Material.AIR) return;
+            if (clickedItem == null || !clickedItem.hasItemMeta()) return;
 
-            if (clickedItem.getType() == Material.PAPER) {
-                // Handle clicking on a warning reason
-            } else if (clickedItem.getType() == Material.RED_STAINED_GLASS_PANE) {
+            ItemMeta meta = clickedItem.getItemMeta();
+            if (meta == null) return;
+
+            String displayName = meta.getDisplayName();
+            if (displayName.equals("Back")) {
                 openWarningGUI(player);
             }
         }
-    }
-
-    private void setSkullOwner(SkullMeta skullMeta, String playerName) {
-        GameProfile profile = new GameProfile(UUID.randomUUID(), playerName);
-        profile.getProperties().put("textures", new Property("textures", getSkin(playerName)));
-
-        try {
-            Field profileField = skullMeta.getClass().getDeclaredField("profile");
-            profileField.setAccessible(true);
-            profileField.set(skullMeta, profile);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private String getSkin(String playerName) {
-        // Implement your method to get the player's skin here
-        return "";
     }
 }

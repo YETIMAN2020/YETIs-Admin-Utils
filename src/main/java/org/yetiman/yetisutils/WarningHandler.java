@@ -1,12 +1,12 @@
 package org.yetiman.yetisutils;
 
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class WarningHandler {
@@ -14,75 +14,105 @@ public class WarningHandler {
     private final File warningsFile;
     private final FileConfiguration warningsConfig;
 
+    private final Map<UUID, List<Map<String, String>>> warnings = new HashMap<>();
+
     public WarningHandler(YETIsUtils plugin) {
         this.plugin = plugin;
         this.warningsFile = new File(plugin.getDataFolder(), "warnings.yml");
         this.warningsConfig = YamlConfiguration.loadConfiguration(warningsFile);
+        loadWarnings();
     }
 
-    public void addWarning(Player player, String reason, String issuer) {
-        UUID playerId = player.getUniqueId();
-        String playerName = player.getName();
-        String playerIP = player.getAddress().getAddress().getHostAddress();
-        addWarning(playerId, playerName, playerIP, reason, issuer);
-    }
+    public void addWarning(OfflinePlayer player, String reason, String issuer, String date) {
+        UUID uuid = player.getUniqueId();
+        List<Map<String, String>> playerWarnings = warnings.computeIfAbsent(uuid, k -> new ArrayList<>());
 
-    public void addWarning(UUID playerId, String playerName, String playerIP, String reason, String issuer) {
-        List<Map<String, String>> warnings = (List<Map<String, String>>) warningsConfig.getList(playerId.toString(), new ArrayList<>());
         Map<String, String> warning = new HashMap<>();
-        warning.put("Reason", reason);
-        warning.put("IssuedBy", issuer);
-        warning.put("Date", new SimpleDateFormat("dd-MM-yy HH-mm").format(new Date()));
-        warnings.add(warning);
-        warningsConfig.set(playerId.toString(), warnings);
-        saveWarningsConfig();
+        warning.put("reason", reason);
+        warning.put("issuer", issuer);
+        warning.put("date", date);
+        warning.put("ip", player.isOnline() ? player.getPlayer().getAddress().getAddress().getHostAddress() : "N/A");
+        playerWarnings.add(warning);
+
+        saveWarnings();
     }
 
-    public int getWarnings(UUID playerId) {
-        List<Map<String, String>> warnings = (List<Map<String, String>>) warningsConfig.getList(playerId.toString(), new ArrayList<>());
-        return warnings.size();
+    public int getWarnings(UUID uuid) {
+        List<Map<String, String>> playerWarnings = warnings.get(uuid);
+        return (playerWarnings != null) ? playerWarnings.size() : 0;
     }
 
-    public String getWarningReason(UUID playerId, int index) {
-        List<Map<String, String>> warnings = (List<Map<String, String>>) warningsConfig.getList(playerId.toString(), new ArrayList<>());
-        if (index < warnings.size()) {
-            return warnings.get(index).get("Reason");
+    public String getWarningReason(UUID uuid, int index) {
+        List<Map<String, String>> playerWarnings = warnings.get(uuid);
+        if (playerWarnings != null && index >= 0 && index < playerWarnings.size()) {
+            return playerWarnings.get(index).get("reason");
         }
         return null;
     }
 
-    public String getWarningIssuer(UUID playerId, int index) {
-        List<Map<String, String>> warnings = (List<Map<String, String>>) warningsConfig.getList(playerId.toString(), new ArrayList<>());
-        if (index < warnings.size()) {
-            return warnings.get(index).get("IssuedBy");
+    public String getWarningIssuer(UUID uuid, int index) {
+        List<Map<String, String>> playerWarnings = warnings.get(uuid);
+        if (playerWarnings != null && index >= 0 && index < playerWarnings.size()) {
+            return playerWarnings.get(index).get("issuer");
         }
         return null;
     }
 
-    public String getWarningDate(UUID playerId, int index) {
-        List<Map<String, String>> warnings = (List<Map<String, String>>) warningsConfig.getList(playerId.toString(), new ArrayList<>());
-        if (index < warnings.size()) {
-            return warnings.get(index).get("Date");
+    public String getWarningDate(UUID uuid, int index) {
+        List<Map<String, String>> playerWarnings = warnings.get(uuid);
+        if (playerWarnings != null && index >= 0 && index < playerWarnings.size()) {
+            return playerWarnings.get(index).get("date");
         }
         return null;
     }
 
-    public boolean clearWarning(UUID playerId, int index) {
-        List<Map<String, String>> warnings = (List<Map<String, String>>) warningsConfig.getList(playerId.toString(), new ArrayList<>());
-        if (index < warnings.size()) {
-            warnings.remove(index);
-            warningsConfig.set(playerId.toString(), warnings);
-            saveWarningsConfig();
+    public String getWarningIP(UUID uuid, int index) {
+        List<Map<String, String>> playerWarnings = warnings.get(uuid);
+        if (playerWarnings != null && index >= 0 && index < playerWarnings.size()) {
+            return playerWarnings.get(index).get("ip");
+        }
+        return null;
+    }
+
+    public boolean clearWarning(UUID uuid, int index) {
+        List<Map<String, String>> playerWarnings = warnings.get(uuid);
+        if (playerWarnings != null && index >= 0 && index < playerWarnings.size()) {
+            playerWarnings.remove(index);
+            saveWarnings();
             return true;
         }
         return false;
     }
 
-    private void saveWarningsConfig() {
+    public List<UUID> getWarnedPlayers() {
+        return new ArrayList<>(warnings.keySet());
+    }
+
+    public List<Map<String, String>> getWarningsList(UUID uuid) {
+        return warnings.getOrDefault(uuid, new ArrayList<>());
+    }
+
+    public void loadWarnings() {
+        if (!warningsFile.exists()) {
+            return;
+        }
+
+        warnings.clear();
+        for (String key : warningsConfig.getKeys(false)) {
+            UUID uuid = UUID.fromString(key);
+            List<Map<String, String>> playerWarnings = (List<Map<String, String>>) warningsConfig.getList(key);
+            warnings.put(uuid, playerWarnings);
+        }
+    }
+
+    public void saveWarnings() {
+        for (Map.Entry<UUID, List<Map<String, String>>> entry : warnings.entrySet()) {
+            warningsConfig.set(entry.getKey().toString(), entry.getValue());
+        }
         try {
             warningsConfig.save(warningsFile);
         } catch (IOException e) {
-            plugin.getLogger().severe("Could not save warnings config: " + e.getMessage());
+            plugin.getLogger().warning("Failed to save warnings: " + e.getMessage());
         }
     }
 }

@@ -1,17 +1,14 @@
 package org.yetiman.yetisutils;
 
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.Location;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 public class ReportCommand implements CommandExecutor, TabCompleter {
     private final ReportHandler reportHandler;
@@ -27,24 +24,22 @@ public class ReportCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        Player player = (Player) sender;
         if (args.length == 0) {
-            sender.sendMessage("Usage: /report <issue>");
+            player.sendMessage("Usage: /report <issue>");
             return true;
         }
 
-        Player player = (Player) sender;
-        UUID playerId = player.getUniqueId();
-        String playerName = player.getName();
         String issue = String.join(" ", args);
-
-        reportHandler.addReport(playerId, playerName, issue);
-        sender.sendMessage("Your report has been submitted.");
-
+        Location location = player.getLocation();
+        reportHandler.addReport(player, issue, location);
+        player.sendMessage("Your report has been submitted.");
         return true;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        // Return an empty list to disable tab completion for arguments
         return Collections.emptyList();
     }
 }
