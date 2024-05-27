@@ -2,65 +2,50 @@
 
 
 ## Features
-- **Admin Mode**: Toggle between player and admin inventories.
-- **Player Warnings**: Issue warnings to players, view the number of warnings a player has, and clear specific warnings.
-- **Warning GUI**: An in-game GUI for viewing player warnings.
-- **Inventory Management**: Save and load player and admin inventories to and from files.
-- **Player Warning Display**: Allows players to see their own warnings.
+
+- **Admin Mode Inventory Switch**: Toggle between your regular player inventory and a separate admin inventory.
+- **Player Warnings**: Issue warnings to players, store and view warnings, and clear specific warnings.
+- **Player Reports**: Players can report issues, which are stored and viewable by admins in a GUI.
+- **Configuration Reload**: Reload the plugin's configuration without restarting the server.
+- **Auto IP Ban**: Automatically ban a player's IP after a configurable number of warnings.
+- **Permissions**: Configurable permissions for commands to ensure only authorized users can perform certain actions.
 
 ## Commands
-- `/adminmode`: Toggles between player and admin inventories.
-- `/warn <player> <reason>`: Issues a warning to a player with a specified reason.
-- `/warnclear <player> <warning number>`: Clears a specific warning for a player.
-- `/warnings <player>`: Displays the number of warnings a player has.
-- `/warnmenu`: Opens the warning management GUI.
-- `/mywarnings`: Allows players to see their own warnings.
+
+- `/adminmode` - Toggle between player inventory and admin inventory.
+- `/warn <player> <reason>` - Issue a warning to a player.
+- `/warnings <player>` - View the number of warnings a player has.
+- `/warnmenu` - Open a GUI to view all player warnings.
+- `/warnclear <player> <warning number>` - Clear a specific warning from a player.
+- `/mywarnings` - View your own warnings (if enabled in config).
+- `/report <issue>` - Report an issue to the admins.
+- `/reportmenu` - Open a GUI to view all player reports.
+- `/yetisutils reload` - Reload the plugin's configuration.
 
 ## Permissions
-- `yetisutils.adminmode`: Permission to use the `/adminmode` command.
-- `yetisutils.warn`: Permission to issue warnings using the `/warn` command.
-- `yetisutils.warnclear`: Permission to clear warnings using the `/warnclear` command.
-- `yetisutils.warnings`: Permission to view the number of warnings a player has using the `/warnings` command.
-- `yetisutils.warnmenu`: Permission to open the warning management GUI using the `/warnmenu` command.
-- `yetisutils.mywarnings`: Permission for players to see their own warnings using the `/mywarnings` command.
+
+- `yetisutils.adminmode` - Permission to toggle admin mode.
+- `yetisutils.warn` - Permission to issue warnings.
+- `yetisutils.warnings` - Permission to view player warnings.
+- `yetisutils.warnmenu` - Permission to open the warnings GUI.
+- `yetisutils.warnclear` - Permission to clear player warnings.
+- `yetisutils.mywarnings` - Permission for players to view their own warnings.
+- `yetisutils.report` - Permission to report issues.
+- `yetisutils.reportmenu` - Permission to open the reports GUI.
+- `yetisutils.reload` - Permission to reload the plugin configuration.
 
 ## Configuration
-- The plugin creates a `warnings.yml` file in the plugin's data folder to store warnings.
-- Date and time format for warnings is `dd-MM-yy HH:mm`.
 
-## Installation
-1. Download the latest version of the YETIsUtils plugin.
-2. Place the downloaded JAR file in your server's `plugins` directory.
-3. Restart the server to generate the default configuration files.
-4. Configure the plugin as needed by editing the `config.yml` and `warnings.yml` files in the `plugins/YETIsUtils` directory.
+The plugin's configuration file (`config.yml`) includes the following options:
 
-## Changelog
-### Version 2.2
-- Added the ability for players to see their own warnings with the `/mywarnings` command.
-- Updated the date and time format for warnings to `dd-MM-yy HH:mm`.
-- Fixed issues with warning retrieval and display.
-- Improved compatibility with Minecraft 1.20.1.
+```yaml
+# Configuration file for YETIsUtils
 
-### Version 2.1
-- Added the ability to clear specific warnings with the `/warnclear` command.
-- Improved the warning management GUI.
+# Enable or disable players being able to view their own warnings
+enablePlayerWarningsView: true
 
-### Version 2.0
-- Introduced the warning management GUI.
-- Added the ability to issue warnings to offline players.
-- Improved the inventory management system to persist inventories to files.
+# Set the number of warnings before automatically banning a player's IP (0 for unlimited warnings)
+autoIPBanThreshold: 3
 
-### Version 1.0
-- Initial release with basic admin mode and warning functionalities.
-
-## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Contributing
-Contributions are welcome! Please open an issue or submit a pull request on GitHub.
-
-## Support
-For support, please open an issue on GitHub or contact the plugin author.
-
-## Acknowledgements
-- Thanks to the Minecraft community for their continuous support and feedback.
+# Enable or disable debug messages in the console
+debug: false
