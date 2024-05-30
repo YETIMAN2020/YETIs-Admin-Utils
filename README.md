@@ -1,6 +1,5 @@
 # YETIsUtils
 
-
 ## Features
 
 - **Admin Mode Inventory Switch**: Toggle between your regular player inventory and a separate admin inventory.
@@ -17,7 +16,7 @@
 - `/warnings <player>` - View the number of warnings a player has.
 - `/warnmenu` - Open a GUI to view all player warnings.
 - `/warnclear <player> <warning number>` - Clear a specific warning from a player.
-- `/mywarnings` - View your own warnings (if enabled in config).
+- `/mywarns` - View your own warnings (if enabled in config).
 - `/report <issue>` - Report an issue to the admins.
 - `/reportmenu` - Open a GUI to view all player reports.
 - `/yetisutils reload` - Reload the plugin's configuration.
@@ -29,23 +28,16 @@
 - `yetisutils.warnings` - Permission to view player warnings.
 - `yetisutils.warnmenu` - Permission to open the warnings GUI.
 - `yetisutils.warnclear` - Permission to clear player warnings.
-- `yetisutils.mywarnings` - Permission for players to view their own warnings.
+- `yetisutils.mywarns` - Permission for players to view their own warnings.
 - `yetisutils.report` - Permission to report issues.
 - `yetisutils.reportmenu` - Permission to open the reports GUI.
 - `yetisutils.reload` - Permission to reload the plugin configuration.
 
-## Configuration
-
-The plugin's configuration file (`config.yml`) includes the following options:
+## Configurable Settings (`config.yml`)
 
 ```yaml
-# Configuration file for YETIsUtils
-
-# Enable or disable players being able to view their own warnings
-enablePlayerWarningsView: true
-
-# Set the number of warnings before automatically banning a player's IP (0 for unlimited warnings)
-autoIPBanThreshold: 3
-
-# Enable or disable debug messages in the console
-debug: false
+log-time-and-date: true  # Enable or disable the logging of when a warn was given
+enablePlayerWarningsView: true  # Enable or disable player being able to view their own warns
+debug: false # For debugging, spams console when used. Recommended false
+maxWarningsBeforeBan: 0  # Set to 0 for unlimited warnings, any other number for the warning limit before ban-IP a player
+enableReportFeature: true # This will enable or disable the in-game report feature so players will or won't be able to use /report
