@@ -1,5 +1,5 @@
 name: YETIsUtils
-version: 2.7
+version: 3.1.1
 main: org.yetiman.yetisutils.YETIsUtils
 api-version: 1.20
 commands:
@@ -20,13 +20,13 @@ commands:
     usage: /<command>
     permission: yetisutils.warnmenu
   warnclear:
-    description: Clears a specific warning of a player
-    usage: /<command> <player> <warning number>
+    description: Clears a specific warning of a player or all warnings
+    usage: /<command> <player> <warning number or *>
     permission: yetisutils.warnclear
-  mywarnings:
+  mywarns:
     description: Views your own warnings
     usage: /<command>
-    permission: yetisutils.mywarnings
+    permission: yetisutils.mywarns
   report:
     description: Submits a report
     usage: /<command> <issue>
@@ -55,7 +55,7 @@ permissions:
   yetisutils.warnclear:
     description: Allows clearing warnings
     default: op
-  yetisutils.mywarnings:
+  yetisutils.mywarns:
     description: Allows viewing your own warnings
     default: true
   yetisutils.report:
