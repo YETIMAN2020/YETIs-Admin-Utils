@@ -1,12 +1,13 @@
 package org.yetiman.yetisutils.Reportfeatures;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.entity.Player;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.ChatColor;
+import org.bukkit.entity.Player;
 import org.yetiman.yetisutils.YETIsUtils;
 
 import java.io.File;
@@ -43,6 +44,7 @@ public class ReportHandler {
         reports.put(reportId, reportData);
         saveReportToFile(reportId, reportData);
         notifyAdmins(player.getName(), issue);
+        plugin.notifyDiscord("New report from " + player.getName() + ": " + issue, false);
     }
 
     private String generateReportId(OfflinePlayer player) {
@@ -71,6 +73,12 @@ public class ReportHandler {
         if (reportFile.exists()) {
             reportFile.delete();
         }
+
+        String closedMessage = ChatColor.GREEN + "Report ID " + reportId + " closed.";
+        notifyAdmins(closedMessage);
+
+        // Only notify admins, not the player who closed the report
+        plugin.notifyDiscord(closedMessage, false);
     }
 
     private void saveReportToFile(String reportId, Map<String, String> reportData) {
@@ -111,7 +119,17 @@ public class ReportHandler {
         }
     }
 
+    private void notifyAdmins(String message) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.hasPermission("report.admin")) {
+                player.sendMessage(message);
+            }
+        }
+        reportNotification.notifyNewReport(message, ""); // Adjust this line if a second argument is needed
+    }
+
     private void notifyAdmins(String playerName, String issue) {
-        reportNotification.notifyNewReport(playerName, issue);
+        String message = ChatColor.GREEN + "New report from " + ChatColor.YELLOW + playerName + ChatColor.GREEN + ": " + ChatColor.WHITE + issue;
+        notifyAdmins(message);
     }
 }

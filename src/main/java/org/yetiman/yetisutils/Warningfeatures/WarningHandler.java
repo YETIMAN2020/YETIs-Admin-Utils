@@ -38,6 +38,12 @@ public class WarningHandler {
         if (issuerPlayer != null && issuerPlayer.isOnline()) {
             issuerPlayer.sendMessage(ChatColor.GREEN + "Warning issued to " + ChatColor.WHITE + player.getName() + ChatColor.GREEN + " for: " + ChatColor.YELLOW + reason);
         }
+
+        OfflinePlayer target = Bukkit.getOfflinePlayer(playerUUID);
+        // Send a single notification to Discord
+        String warningMessage = "Player " + target.getName() + " has been warned by " + issuer + " for " + reason;
+        YETIsUtils.getInstance().notifyDiscord(warningMessage, true);
+
     }
 
     public int getWarnings(UUID playerUUID) {

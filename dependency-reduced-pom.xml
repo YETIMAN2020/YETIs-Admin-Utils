@@ -4,7 +4,7 @@
   <groupId>org.yetiman</groupId>
   <artifactId>YETIsUtils</artifactId>
   <name>YETIsUtils</name>
-  <version>3.1.1</version>
+  <version>3.5</version>
   <build>
     <resources>
       <resource>
@@ -62,6 +62,14 @@
     <repository>
       <id>sonatype</id>
       <url>https://oss.sonatype.org/content/groups/public/</url>
+    </repository>
+    <repository>
+      <id>jcenter</id>
+      <url>https://jcenter.bintray.com/</url>
+    </repository>
+    <repository>
+      <id>jda-repo</id>
+      <url>https://m2.dv8tion.net/releases</url>
     </repository>
   </repositories>
   <dependencies>

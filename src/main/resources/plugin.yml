@@ -1,5 +1,5 @@
 name: YETIsUtils
-version: 3.1.1
+version: 3.5
 main: org.yetiman.yetisutils.YETIsUtils
 api-version: 1.20
 commands:

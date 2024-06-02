@@ -1,5 +1,8 @@
 package org.yetiman.yetisutils;
 
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.TextChannel;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -19,11 +22,11 @@ import org.yetiman.yetisutils.Reportfeatures.ReportGUI;
 import org.yetiman.yetisutils.Reportfeatures.ReportHandler;
 import org.yetiman.yetisutils.Reportfeatures.ReportMenuCommand;
 import org.yetiman.yetisutils.Reportfeatures.ReportNotification;
-import org.yetiman.yetisutils.Warningfeatures.Warning;
 import org.yetiman.yetisutils.Warningfeatures.WarningClearCommand;
 import org.yetiman.yetisutils.Warningfeatures.WarningGUI;
 import org.yetiman.yetisutils.Warningfeatures.WarningHandler;
 
+import javax.security.auth.login.LoginException;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -44,6 +47,10 @@ public class YETIsUtils extends JavaPlugin {
     private boolean debug;
     private int maxWarningsBeforeBan;
     private boolean enableReportFeature;
+    private String discordBotToken;
+    private String discordWarningChannelId;
+    private String discordReportChannelId;
+    private JDA jda;
 
     public static YETIsUtils getInstance() {
         return instance;
@@ -58,8 +65,7 @@ public class YETIsUtils extends JavaPlugin {
         registerCommands();
         registerEvents();
         loadInventories();
-        warningHandler.loadWarnings();
-        reportHandler.loadReports();
+        initializeDiscordBot();
     }
 
     @Override
@@ -67,6 +73,9 @@ public class YETIsUtils extends JavaPlugin {
         saveInventories();
         warningHandler.saveWarnings();
         reportHandler.saveReports();
+        if (jda != null) {
+            jda.shutdown();
+        }
     }
 
     private void loadConfigSettings() {
@@ -76,6 +85,14 @@ public class YETIsUtils extends JavaPlugin {
         debug = config.getBoolean("debug", false);
         maxWarningsBeforeBan = config.getInt("maxWarningsBeforeBan", 0);
         enableReportFeature = config.getBoolean("enableReportFeature", true);
+        discordBotToken = config.getString("discord-bot-token", "");
+        discordWarningChannelId = config.getString("discord-warning-channel-id", "");
+        discordReportChannelId = config.getString("discord-report-channel-id", "");
+
+        // Debug statements
+        getLogger().info("Discord Bot Token: " + discordBotToken);
+        getLogger().info("Discord Warning Channel ID: " + discordWarningChannelId);
+        getLogger().info("Discord Report Channel ID: " + discordReportChannelId);
     }
 
     private void initializeHandlersAndGUIs() {
@@ -121,6 +138,40 @@ public class YETIsUtils extends JavaPlugin {
 
     public int getMaxWarningsBeforeBan() {
         return maxWarningsBeforeBan;
+    }
+
+    public void notifyDiscord(String message, boolean isWarning) {
+        if (jda == null) {
+            getLogger().warning("Discord bot is not initialized.");
+            return;
+        }
+
+        String channelId = isWarning ? discordWarningChannelId : discordReportChannelId;
+        TextChannel channel = jda.getTextChannelById(channelId);
+        if (channel == null) {
+            getLogger().warning("Discord channel ID is not valid.");
+            return;
+        }
+
+        channel.sendMessage(message).queue();
+    }
+
+    private void initializeDiscordBot() {
+        if (discordBotToken.isEmpty() || (discordWarningChannelId.isEmpty() && discordReportChannelId.isEmpty())) {
+            getLogger().warning("Discord bot token or channel ID is not set.");
+            return;
+        }
+
+        try {
+            jda = JDABuilder.createDefault(discordBotToken).build();
+            jda.awaitReady();
+            getLogger().info("Discord bot initialized successfully.");
+        } catch (LoginException e) {
+            getLogger().warning("Invalid token provided for Discord bot.");
+        } catch (InterruptedException e) {
+            getLogger().warning("Discord bot initialization interrupted.");
+            Thread.currentThread().interrupt(); // Restore the interrupted status
+        }
     }
 
     public class AdminModeCommand implements CommandExecutor {
@@ -173,18 +224,13 @@ public class YETIsUtils extends JavaPlugin {
             String reason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
             String issuer = sender.getName();
             String dateStr = new SimpleDateFormat("dd-MM-yy HH:mm").format(new Date());
-            Date date = new Date();
 
-            String playerIP = "unknown";
-            if (target.isOnline()) {
-                Player onlinePlayer = (Player) target;
-                playerIP = onlinePlayer.getAddress().getAddress().getHostAddress();
-            }
-
-            Warning warning = new Warning(target.getName(), playerIP, reason, issuer, date);
             warningHandler.addWarning(target, reason, issuer, dateStr);
 
             sender.sendMessage("Player " + target.getName() + " has been warned for: " + reason);
+
+            String warningMessage = "Player " + target.getName() + " has been warned by " + issuer + " for " + reason;
+            notifyDiscord(warningMessage, true);
 
             // Ban the player if they exceed the maxWarningsBeforeBan
             int maxWarningsBeforeBan = YETIsUtils.getInstance().getMaxWarningsBeforeBan();
@@ -192,7 +238,7 @@ public class YETIsUtils extends JavaPlugin {
                 if (target.isOnline()) {
                     Player onlinePlayer = (Player) target;
                     Bukkit.getBanList(BanList.Type.NAME).addBan(target.getName(), "Exceeded warning limit", null, issuer);
-                    Bukkit.getBanList(BanList.Type.IP).addBan(playerIP, "Exceeded warning limit", null, issuer);
+                    Bukkit.getBanList(BanList.Type.IP).addBan(onlinePlayer.getAddress().getAddress().getHostAddress(), "Exceeded warning limit", null, issuer);
                     onlinePlayer.kickPlayer("You have been banned for exceeding the warning limit.");
                 } else {
                     Bukkit.getBanList(BanList.Type.NAME).addBan(target.getName(), "Exceeded warning limit", null, issuer);
@@ -336,6 +382,10 @@ public class YETIsUtils extends JavaPlugin {
             Location location = player.getLocation();
             reportHandler.addReport(player, issue, location);
             sender.sendMessage(ChatColor.GREEN + "Report submitted. Thank you!");
+
+            String reportMessage = "New report from " + player.getName() + ": " + issue;
+            notifyDiscord(reportMessage, false);
+
             return true;
         }
 
